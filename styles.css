@@ -52,3 +52,145 @@ label{font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:800
 .home-cardio .home-art:before{background:linear-gradient(135deg,rgba(110,231,255,.42),rgba(214,167,45,.18)),radial-gradient(circle at 28% 20%,rgba(255,224,138,.95) 0 10%,transparent 11%),linear-gradient(160deg,#04172a,#0a6ca0)}
 .home-backward .home-art:before,.home-rest .home-art:before{background:linear-gradient(135deg,rgba(214,167,45,.32),rgba(110,231,255,.14)),radial-gradient(circle at 28% 20%,rgba(255,224,138,.95) 0 10%,transparent 11%),linear-gradient(160deg,#061426,#263a55)}
 .compact-guidance{margin-top:14px}
+
+
+/* Phase 7: exercise cards now have image/art slots */
+.exercise-visual-card{padding:12px}
+.exercise-visual-card h3{margin:0}
+.exercise-hero{
+  position:relative;
+  min-height:132px;
+  border-radius:22px;
+  overflow:hidden;
+  border:1px solid rgba(110,231,255,.25);
+  margin-bottom:14px;
+  background:linear-gradient(135deg,#061426,#0a3157);
+  box-shadow:inset 0 0 42px rgba(110,231,255,.12);
+}
+.exercise-hero:before{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(circle at 78% 20%,rgba(255,224,138,.95) 0 10%,transparent 11%),
+    radial-gradient(circle at 18% 18%,rgba(110,231,255,.24),transparent 28%),
+    linear-gradient(160deg,rgba(3,20,38,.1),rgba(3,20,38,.84));
+}
+.exercise-hero:after{
+  content:'';
+  position:absolute;
+  left:-20px;
+  right:-10px;
+  bottom:22px;
+  height:4px;
+  background:rgba(214,167,45,.9);
+  transform:skew(-18deg);
+  box-shadow:
+    36px -22px 0 rgba(110,231,255,.34),
+    84px -48px 0 rgba(255,255,255,.18),
+    150px -72px 0 rgba(214,167,45,.2);
+}
+.exercise-figure{
+  position:absolute;
+  left:22px;
+  bottom:28px;
+  width:78px;
+  height:78px;
+  z-index:1;
+}
+.exercise-figure:before{
+  content:'';
+  position:absolute;
+  left:31px;
+  top:4px;
+  width:16px;
+  height:16px;
+  border-radius:50%;
+  background:#ffe08a;
+  box-shadow:0 0 18px rgba(255,224,138,.5);
+}
+.exercise-figure:after{
+  content:'';
+  position:absolute;
+  left:36px;
+  top:22px;
+  width:8px;
+  height:48px;
+  border-radius:10px;
+  background:#eaf8ff;
+  box-shadow:
+    -19px 8px 0 -2px #eaf8ff,
+    19px 8px 0 -2px #eaf8ff,
+    -13px 45px 0 -2px #6ee7ff,
+    13px 45px 0 -2px #6ee7ff;
+  transform:rotate(var(--pose,0deg));
+}
+.exercise-hero-copy{
+  position:absolute;
+  left:118px;
+  right:14px;
+  bottom:18px;
+  z-index:2;
+}
+.exercise-hero-copy span{
+  color:var(--accent);
+  font-size:11px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.09em;
+}
+.exercise-hero-copy h3{
+  font-size:21px;
+  margin:4px 0;
+}
+.exercise-hero-copy p{
+  color:var(--muted);
+  margin:0;
+  font-size:13px;
+  line-height:1.3;
+}
+
+/* per-exercise placeholder compositions */
+.art-pullup{background:linear-gradient(135deg,#061426,#084d77)}
+.art-pullup .exercise-figure{--pose:0deg;bottom:24px}
+.art-pullup .exercise-figure:after{height:42px;box-shadow:-24px -22px 0 -3px #eaf8ff,24px -22px 0 -3px #eaf8ff,-12px 43px 0 -2px #6ee7ff,12px 43px 0 -2px #6ee7ff}
+.art-pullup:after{height:5px;bottom:104px;left:18px;right:auto;width:92px;box-shadow:none;background:#d6a72d;transform:none}
+
+.art-chinup{background:linear-gradient(135deg,#07172b,#0a5d88)}
+.art-chinup:after{height:5px;bottom:104px;left:18px;right:auto;width:92px;box-shadow:none;background:#d6a72d;transform:none}
+.art-chinup .exercise-figure:after{height:42px;box-shadow:-21px -18px 0 -3px #eaf8ff,21px -18px 0 -3px #eaf8ff,-12px 43px 0 -2px #6ee7ff,12px 43px 0 -2px #6ee7ff}
+
+.art-hang{background:linear-gradient(135deg,#061426,#173a5e)}
+.art-hang:after{height:5px;bottom:104px;left:18px;right:auto;width:92px;box-shadow:none;background:#d6a72d;transform:none}
+.art-hang .exercise-figure:after{height:58px;box-shadow:-19px -20px 0 -2px #eaf8ff,19px -20px 0 -2px #eaf8ff,-10px 57px 0 -2px #6ee7ff,10px 57px 0 -2px #6ee7ff}
+
+.art-row .exercise-figure{transform:rotate(-63deg);bottom:34px;left:18px}
+.art-row:after{bottom:40px;left:8px;right:auto;width:105px}
+
+.art-pushup .exercise-figure{transform:rotate(-78deg);bottom:28px;left:18px}
+.art-pushup:after{bottom:24px;left:18px;right:auto;width:106px}
+
+.art-dip{background:linear-gradient(135deg,#061426,#0a3157)}
+.art-dip:after{height:72px;width:4px;left:20px;bottom:30px;box-shadow:72px 0 0 #d6a72d;background:#d6a72d;transform:none}
+.art-dip .exercise-figure{bottom:38px;left:32px}
+.art-dip .exercise-figure:after{height:38px;box-shadow:-26px 2px 0 -3px #eaf8ff,26px 2px 0 -3px #eaf8ff,-12px 36px 0 -2px #6ee7ff,12px 36px 0 -2px #6ee7ff}
+
+.art-squat .exercise-figure:after{--pose:0deg;height:38px;box-shadow:-18px 16px 0 -2px #eaf8ff,18px 16px 0 -2px #eaf8ff,-18px 38px 0 -2px #6ee7ff,18px 38px 0 -2px #6ee7ff}
+.art-rdl .exercise-figure{transform:rotate(28deg);bottom:30px}
+.art-rdl .exercise-figure:after{height:42px;box-shadow:-20px 12px 0 -3px #eaf8ff,22px 26px 0 -3px #eaf8ff,-16px 42px 0 -2px #6ee7ff,16px 42px 0 -2px #6ee7ff}
+.art-knee:after{height:72px;width:4px;left:20px;bottom:30px;box-shadow:72px 0 0 #d6a72d;background:#d6a72d;transform:none}
+.art-knee .exercise-figure:after{height:34px;box-shadow:-22px 2px 0 -3px #eaf8ff,22px 2px 0 -3px #eaf8ff,-20px 30px 0 -2px #6ee7ff,20px 30px 0 -2px #6ee7ff}
+
+.art-crunch .exercise-figure,.art-reverse-crunch .exercise-figure,.art-hollow .exercise-figure,.art-deadbug .exercise-figure{transform:rotate(-80deg);bottom:28px;left:18px}
+.art-vacuum .exercise-figure{bottom:28px}
+.art-vacuum .exercise-figure:after{height:48px;box-shadow:-16px 10px 0 -3px #eaf8ff,16px 10px 0 -3px #eaf8ff,-9px 48px 0 -2px #6ee7ff,9px 48px 0 -2px #6ee7ff}
+.art-sideplank .exercise-figure{transform:rotate(-68deg);bottom:31px;left:20px}
+.art-sideplank:after{bottom:26px;left:18px;right:auto;width:106px}
+
+.light .exercise-hero-copy p{color:#d6e0ea}
+@media(max-width:420px){
+  .exercise-hero{min-height:124px}
+  .exercise-hero-copy{left:108px}
+  .exercise-hero-copy h3{font-size:18px}
+  .exercise-figure{left:18px}
+}
