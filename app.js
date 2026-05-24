@@ -143,6 +143,7 @@ window.quickLog = function(field,label,current){
 window.saveCheckin = function(){ const date=todayISO(); const weight=$('#weight').value; const sleep=$('#sleep').value, energy=$('#energy').value, soreness=$('#soreness').value; db.weights=db.weights.filter(x=>x.date!==date); if(weight) db.weights.push({date,weight:Number(weight)}); db.recovery=db.recovery.filter(x=>x.date!==date); db.recovery.push({date,sleep:Number(sleep||0),energy:Number(energy||0),soreness:Number(soreness||0)}); save(); todayView(); };
 window.workoutView = function(key,title){ const exs=routines[key]; screen.innerHTML = `<section class="card"><h2>${title}</h2><p class="small">Log the working set. Warm-up is not counted as progress.</p></section>` + exs.map((e,i)=>exerciseCard(e[0],e[1],i)).join('') + `<button class="btn primary" onclick="saveWorkout('${key}','${title}')">Save Workout</button>`; setActive(null); };
 
+
 function artLabel(name){
   const n=name.toLowerCase();
   if(n.includes('pull-up')) return ['Pull-up form image','pullup'];
@@ -162,35 +163,57 @@ function artLabel(name){
   if(n.includes('side plank')) return ['Side plank image','sideplank'];
   return ['Exercise image','default'];
 }
+function stepper(label, cls, value=''){
+  return `<div class="stepper-row">
+    <span>${label}</span>
+    <div class="stepper">
+      <button class="step-btn minus" type="button">−</button>
+      <input class="${cls}" inputmode="numeric" value="${value}">
+      <button class="step-btn plus" type="button">+</button>
+    </div>
+  </div>`;
+}
 function exerciseCard(name,unit,i){
   const prev=last(db.exerciseLogs,x=>x.exercise===name);
   const defaultRest = name.includes('Pull')||name.includes('Dips')||name.includes('Push')||name.includes('hang') ? 180 : (name.includes('Crunch')||name.includes('vacuum')||name.includes('Hollow')||name.includes('Side')||name.includes('Dead bug') ? 75 : 120);
   const art = artLabel(name);
-  return `<section class="card workout-card visual-workout-card" data-ex="${name}" data-unit="${unit}">
-    <div class="exercise-image-panel art-${art[1]}">
+  return `<section class="card workout-card visual-workout-card big-art-card" data-ex="${name}" data-unit="${unit}">
+    <div class="exercise-big-image art-${art[1]}">
       <div class="moon-dot"></div>
       <div class="figure-symbol"></div>
-      <div class="image-label">
-        <span>Hokusai Cyber example</span>
-        <strong>${art[0]}</strong>
+      <div class="big-image-overlay">
+        <span>${unit}</span>
+        <h3>${i+1}. ${name}</h3>
+        <p>${prev?`Last: ${prev.working} ${prev.unit} · ${prev.intensity} · rest ${prev.restSec}s`:'Log your hard working set.'}</p>
       </div>
     </div>
-    <div class="exercise-title-row">
-      <h3>${i+1}. ${name}</h3>
-      <span class="tag">${unit}</span>
+
+    <div class="compact-logger">
+      ${stepper('Warm-up', 'warm')}
+      ${stepper('Working set', 'working')}
+      ${stepper('Rest sec', 'rest', defaultRest)}
+      <label>Intensity</label>
+      <div class="pill-row"><button class="pill">Easy</button><button class="pill">Moderate</button><button class="pill selected">Hard</button><button class="pill">Failure</button></div>
+      <label>Notes</label><textarea class="notes"></textarea>
     </div>
-    ${prev?`<p class="small">Last: ${prev.working} ${prev.unit} · ${prev.intensity} · rest ${prev.restSec}s</p>`:''}
-    <div class="row">
-      <div><label>Warm-up</label><input class="warm" inputmode="numeric"></div>
-      <div><label>Working set</label><input class="working" inputmode="numeric"></div>
-      <div><label>Rest sec</label><input class="rest" inputmode="numeric" value="${defaultRest}"></div>
-    </div>
-    <label>Intensity</label>
-    <div class="pill-row"><button class="pill">Easy</button><button class="pill">Moderate</button><button class="pill selected">Hard</button><button class="pill">Failure</button></div>
-    <label>Notes</label><textarea class="notes"></textarea>
   </section>`;
 }
-document.addEventListener('click',e=>{ if(e.target.classList.contains('pill')){ e.preventDefault(); e.target.parentElement.querySelectorAll('.pill').forEach(p=>p.classList.remove('selected')); e.target.classList.add('selected'); }});
+document.addEventListener('click',e=>{
+  if(e.target.classList.contains('pill')){
+    e.preventDefault();
+    e.target.parentElement.querySelectorAll('.pill').forEach(p=>p.classList.remove('selected'));
+    e.target.classList.add('selected');
+  }
+  if(e.target.classList.contains('plus') || e.target.classList.contains('minus')){
+    e.preventDefault();
+    const input = e.target.parentElement.querySelector('input');
+    const current = Number(input.value || 0);
+    const step = input.classList.contains('rest') ? 15 : 1;
+    const next = e.target.classList.contains('plus') ? current + step : Math.max(0, current - step);
+    input.value = next;
+  }
+});
+
 window.saveWorkout = function(key,title){ const date=todayISO(); document.querySelectorAll('.workout-card').forEach(c=>{ const working=c.querySelector('.working').value; if(!working) return; db.exerciseLogs.push({date,day:dayName(date),routine:key,routineTitle:title,exercise:c.dataset.ex,unit:c.dataset.unit,warmup:Number(c.querySelector('.warm').value||0),working:Number(working),restSec:Number(c.querySelector('.rest').value||0),intensity:c.querySelector('.pill.selected')?.textContent||'Hard',notes:c.querySelector('.notes').value,createdAt:new Date().toISOString()}); }); save(); progressView(); setActive('progress'); };
 window.cardioView = function(){ const isSun=new Date().getDay()===0; screen.innerHTML = card('Cardio', `<label>Type</label><select id="ctype"><option>${isSun?'Backward treadmill walk':'Incline Walk'}</option><option>Incline Walk</option><option>Backward treadmill walk</option><option>Easy walk</option></select><div class="grid"><div><label>Duration min</label><input id="cdur" inputmode="numeric" value="${isSun?30:60}"></div><div><label>Incline %</label><input id="cinc" inputmode="decimal" value="12"></div><div><label>Speed</label><input id="cspd" inputmode="decimal" value="${isSun?3:5}"></div></div><label>Effort</label><div class="pill-row"><button class="pill">Easy</button><button class="pill">Moderate</button><button class="pill selected">Hard</button><button class="pill">Max</button></div><label>Notes</label><textarea id="cnotes"></textarea><button class="btn primary" onclick="saveCardio()">Save Cardio</button>`); setActive(null); };
 window.saveCardio = function(){ db.cardioLogs.push({date:todayISO(),type:$('#ctype').value,durationMin:Number($('#cdur').value||0),incline:Number($('#cinc').value||0),speed:Number($('#cspd').value||0),effort:document.querySelector('.pill.selected')?.textContent||'Hard',notes:$('#cnotes').value,createdAt:new Date().toISOString()}); save(); progressView(); setActive('progress'); };
