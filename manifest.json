@@ -1,0 +1,9 @@
+{
+  "name": "Hokusai Training Tracker",
+  "short_name": "Training",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#071827",
+  "theme_color": "#071827",
+  "icons": []
+}
