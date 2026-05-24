@@ -1,1 +1,8 @@
-{"name":"Hokusai Cyber Training","display":"standalone","theme_color":"#031426"}
+{
+  "name": "Hokusai Cyber Training",
+  "short_name": "Training",
+  "display": "standalone",
+  "start_url": "./",
+  "background_color": "#031426",
+  "theme_color": "#031426"
+}

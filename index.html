@@ -1,36 +1,57 @@
 <!doctype html>
-<html><head>
-<meta name='viewport' content='width=device-width, initial-scale=1'>
-<link rel='stylesheet' href='styles.css'>
-<title>Hokusai Cyber Training</title></head>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Hokusai Cyber Training</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="styles.css">
+</head>
 <body>
-<div class='hero'>
-<div class='heroText'>
-<h1>Hokusai Cyber</h1>
-<p id='quote'>Log it. Beat it.</p>
-</div></div>
+<div class="app">
+  <section class="hero">
+    <div class="heroShade"></div>
+    <div class="heroContent">
+      <div class="datePill" id="todayDate">Today</div>
+      <h1>Training Journal</h1>
+      <p id="quote">Log it. Beat it.</p>
+    </div>
+  </section>
 
-<div class='card'>
-<h2>Daily Check‑In</h2>
-<input placeholder='Weight kg'>
-<div class='row'><input placeholder='Sleep 1‑5'><input placeholder='Energy 1‑5'></div>
-<input placeholder='Soreness 1‑5'>
+  <section class="quickPanel">
+    <button class="quick" data-field="weight"><span>⚖️</span><small>Weight</small><b id="weightPreview">-- kg</b></button>
+    <button class="quick" data-field="sleep"><span>😴</span><small>Sleep</small><b id="sleepPreview">--/5</b></button>
+    <button class="quick" data-field="energy"><span>⚡</span><small>Energy</small><b id="energyPreview">--/5</b></button>
+    <button class="quick" data-field="soreness"><span>🔥</span><small>Sore</small><b id="sorenessPreview">--/5</b></button>
+  </section>
+
+  <section class="todayBox">
+    <div class="sectionHeader">
+      <h2>Today</h2>
+      <p id="dayLabel"></p>
+    </div>
+    <div id="todayBlocks"></div>
+  </section>
+
+  <section class="progressMini">
+    <h2>Current Targets</h2>
+    <div class="targetGrid">
+      <div><small>Push-ups</small><b>100</b></div>
+      <div><small>Pull-ups</small><b>20</b></div>
+      <div><small>Hang</small><b>60s+</b></div>
+    </div>
+  </section>
 </div>
 
-<div class='sectionTitle'>Today's Training</div>
-
-<div class='exerciseCard'>
-<div class='art pull'></div>
-<div class='content'><h3>Pull‑ups</h3><input placeholder='Warm‑up'><input placeholder='Working'><input placeholder='Rest sec'></div>
+<div class="modal" id="modal">
+  <div class="modalCard">
+    <h3 id="modalTitle">Log</h3>
+    <input id="modalInput" inputmode="decimal">
+    <button id="saveQuick">Save</button>
+    <button class="ghost" id="closeModal">Cancel</button>
+  </div>
 </div>
 
-<div class='exerciseCard'>
-<div class='art push'></div>
-<div class='content'><h3>Push‑ups</h3><input placeholder='Warm‑up'><input placeholder='Working'><input placeholder='Rest sec'></div>
-</div>
-
-<div class='exerciseCard'>
-<div class='art cardio'></div>
-<div class='content'><h3>Incline Walk</h3><input placeholder='Minutes'><input placeholder='Incline'><input placeholder='Speed'></div>
-</div>
-</body></html>
+<script src="app.js"></script>
+</body>
+</html>
