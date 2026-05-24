@@ -142,38 +142,44 @@ window.quickLog = function(field,label,current){
 };
 window.saveCheckin = function(){ const date=todayISO(); const weight=$('#weight').value; const sleep=$('#sleep').value, energy=$('#energy').value, soreness=$('#soreness').value; db.weights=db.weights.filter(x=>x.date!==date); if(weight) db.weights.push({date,weight:Number(weight)}); db.recovery=db.recovery.filter(x=>x.date!==date); db.recovery.push({date,sleep:Number(sleep||0),energy:Number(energy||0),soreness:Number(soreness||0)}); save(); todayView(); };
 window.workoutView = function(key,title){ const exs=routines[key]; screen.innerHTML = `<section class="card"><h2>${title}</h2><p class="small">Log the working set. Warm-up is not counted as progress.</p></section>` + exs.map((e,i)=>exerciseCard(e[0],e[1],i)).join('') + `<button class="btn primary" onclick="saveWorkout('${key}','${title}')">Save Workout</button>`; setActive(null); };
-function exerciseArtClass(name){
+
+function artLabel(name){
   const n=name.toLowerCase();
-  if(n.includes('pull-up')) return 'art-pullup';
-  if(n.includes('chin')) return 'art-chinup';
-  if(n.includes('hang')) return 'art-hang';
-  if(n.includes('row')) return 'art-row';
-  if(n.includes('push')) return 'art-pushup';
-  if(n.includes('dip')) return 'art-dip';
-  if(n.includes('goblet')) return 'art-squat';
-  if(n.includes('rdl')) return 'art-rdl';
-  if(n.includes('knee')) return 'art-knee';
-  if(n.includes('reverse crunch')) return 'art-reverse-crunch';
-  if(n.includes('crunch')) return 'art-crunch';
-  if(n.includes('vacuum')) return 'art-vacuum';
-  if(n.includes('hollow')) return 'art-hollow';
-  if(n.includes('dead bug')) return 'art-deadbug';
-  if(n.includes('side plank')) return 'art-sideplank';
-  return 'art-default';
+  if(n.includes('pull-up')) return ['Pull-up form image','pullup'];
+  if(n.includes('chin')) return ['Chin-up form image','chinup'];
+  if(n.includes('hang')) return ['Dead / active hang image','hang'];
+  if(n.includes('row')) return ['Reverse row form image','row'];
+  if(n.includes('push')) return ['Push-up form image','pushup'];
+  if(n.includes('dip')) return ['Dip form image','dip'];
+  if(n.includes('goblet')) return ['Goblet squat form image','squat'];
+  if(n.includes('rdl')) return ['Kettlebell RDL form image','rdl'];
+  if(n.includes('knee')) return ['Captain chair knee raise image','knee'];
+  if(n.includes('reverse crunch')) return ['Reverse crunch image','reversecrunch'];
+  if(n.includes('crunch')) return ['Crunch form image','crunch'];
+  if(n.includes('vacuum')) return ['Stomach vacuum image','vacuum'];
+  if(n.includes('hollow')) return ['Hollow hold image','hollow'];
+  if(n.includes('dead bug')) return ['Dead bug image','deadbug'];
+  if(n.includes('side plank')) return ['Side plank image','sideplank'];
+  return ['Exercise image','default'];
 }
 function exerciseCard(name,unit,i){
   const prev=last(db.exerciseLogs,x=>x.exercise===name);
   const defaultRest = name.includes('Pull')||name.includes('Dips')||name.includes('Push')||name.includes('hang') ? 180 : (name.includes('Crunch')||name.includes('vacuum')||name.includes('Hollow')||name.includes('Side')||name.includes('Dead bug') ? 75 : 120);
-  const artClass = exerciseArtClass(name);
-  return `<section class="card workout-card exercise-visual-card" data-ex="${name}" data-unit="${unit}">
-    <div class="exercise-hero ${artClass}">
-      <div class="exercise-figure"></div>
-      <div class="exercise-hero-copy">
-        <span>${unit}</span>
-        <h3>${i+1}. ${name}</h3>
-        ${prev?`<p>Last: ${prev.working} ${prev.unit} · ${prev.intensity} · rest ${prev.restSec}s</p>`:'<p>Log your hard working set.</p>'}
+  const art = artLabel(name);
+  return `<section class="card workout-card visual-workout-card" data-ex="${name}" data-unit="${unit}">
+    <div class="exercise-image-panel art-${art[1]}">
+      <div class="moon-dot"></div>
+      <div class="figure-symbol"></div>
+      <div class="image-label">
+        <span>Hokusai Cyber example</span>
+        <strong>${art[0]}</strong>
       </div>
     </div>
+    <div class="exercise-title-row">
+      <h3>${i+1}. ${name}</h3>
+      <span class="tag">${unit}</span>
+    </div>
+    ${prev?`<p class="small">Last: ${prev.working} ${prev.unit} · ${prev.intensity} · rest ${prev.restSec}s</p>`:''}
     <div class="row">
       <div><label>Warm-up</label><input class="warm" inputmode="numeric"></div>
       <div><label>Working set</label><input class="working" inputmode="numeric"></div>
