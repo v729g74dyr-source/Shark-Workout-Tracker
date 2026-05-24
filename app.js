@@ -2,7 +2,7 @@ const $ = s => document.querySelector(s);
 const screen = $('#screen');
 const todayISO = () => new Date().toISOString().slice(0,10);
 const dayName = d => new Date(d + 'T12:00').toLocaleDateString('en-GB',{weekday:'long'});
-const storeKey = 'hokusaiTrainingTracker.v2';
+const storeKey = 'sharkTrainingTracker.v3';
 const defaults = {
   theme:'dark', weights:[], recovery:[], exerciseLogs:[], cardioLogs:[], notes:[],
   baselines:{pushups:20,pullups:1,chinups:3,rows:20,dips:10,kneeRaises:20,deadHang:55,crunches:20}
@@ -22,6 +22,7 @@ const routines = {
   sundayCore:[['Crunches','reps'],['Reverse crunches','reps'],['Stomach vacuum','sec'],['Hollow hold','sec'],['Dead bug','reps each side'],['Side plank','sec each side']]
 };
 function routineForToday(){ const d = new Date().getDay(); if(d===1||d===6) return ['pullup','Pull-up + Full Body']; if(d===3) return ['chinup','Chin-up + Full Body']; if(d===2||d===4) return ['hang','Hang + Push + Legs']; if(d===0) return ['sundayCore','Sunday Core']; return [null,'Rest Day']; }
+function morningAbsAllowed(){ const d = new Date().getDay(); return d!==0 && d!==5; }
 function last(arr, pred){ return [...arr].reverse().find(pred); }
 function weightStats(){ const sorted=[...db.weights].sort((a,b)=>a.date.localeCompare(b.date)); const cur=sorted.at(-1); const last7=sorted.slice(-7); const avg=last7.length? (last7.reduce((s,x)=>s+Number(x.weight||0),0)/last7.length).toFixed(1):'—'; return {cur,avg}; }
 function card(title, html){ return `<section class="card"><h2>${title}</h2>${html}</section>`; }
@@ -29,11 +30,11 @@ function todayView(){ const [rk,rt]=routineForToday(); const w=last(db.weights,x
  screen.innerHTML = `
  ${card('Morning Check-in', `<div class="grid"><div><label>Weight kg</label><input id="weight" inputmode="decimal" value="${w?.weight||''}" placeholder="84.2"></div><div><label>Sleep 1-5</label><input id="sleep" inputmode="numeric" value="${rec.sleep||''}"></div><div><label>Energy 1-5</label><input id="energy" inputmode="numeric" value="${rec.energy||''}"></div></div><label>Soreness 1-5</label><input id="soreness" inputmode="numeric" value="${rec.soreness||''}"><button class="btn primary" onclick="saveCheckin()">Save Check-in</button>`)}
  <div class="stack">
-  <button class="btn primary" onclick="workoutView('morningAbs','Morning Abs')">Morning Abs</button>
-  ${rk?`<button class="btn primary" onclick="workoutView('${rk}','${rt}')">Lunch Workout: ${rt}</button>`:`<button class="btn" disabled>Rest Day</button>`}
-  <button class="btn primary" onclick="cardioView()">Evening Cardio</button>
+  ${morningAbsAllowed()?`<button class="btn primary" onclick="workoutView('morningAbs','Morning Abs')">Morning Abs</button>`:`<button class="btn" disabled>Morning Abs Off</button>`}
+  ${rk&&rk!=='sundayCore'?`<button class="btn primary" onclick="workoutView('${rk}','${rt}')">Lunch Workout: ${rt}</button>`:rk==='sundayCore'?`<button class="btn primary" onclick="workoutView('sundayCore','Sunday Core Only')">Sunday Core Only</button>`:`<button class="btn" disabled>Rest Day</button>`}
+  <button class="btn primary" onclick="cardioView()">${new Date().getDay()===0?'Backward Treadmill':'Evening Cardio'}</button>
  </div>
- ${card('Today Plan', `<p><b>${rt}</b></p><p class="small">Use 1 warm-up set, then 1 logged hard working set. Track actual rest time so intensity can be analysed later.</p><p class="small"><b>Rest guide:</b> pull-ups/dips/push-ups/hangs 2–3 min · rows/legs/knee raises 90–120 sec · abs 60–90 sec.</p>`)}
+ ${card('Today Plan', `<p><b>${new Date().getDay()===0?'Sunday = core only + backward treadmill':rt}</b></p><p class="small">Morning abs are scheduled every day except Friday and Sunday. Sunday is a separate core-only session plus backward treadmill.</p><p class="small">Use 1 warm-up set, then 1 logged hard working set. Track actual rest time so intensity can be analysed later.</p><p class="small"><b>Rest guide:</b> pull-ups/dips/push-ups/hangs 2–3 min · rows/legs/knee raises 90–120 sec · abs 60–90 sec.</p>`)}
  `;
 }
 window.saveCheckin = function(){ const date=todayISO(); const weight=$('#weight').value; const sleep=$('#sleep').value, energy=$('#energy').value, soreness=$('#soreness').value; db.weights=db.weights.filter(x=>x.date!==date); if(weight) db.weights.push({date,weight:Number(weight)}); db.recovery=db.recovery.filter(x=>x.date!==date); db.recovery.push({date,sleep:Number(sleep||0),energy:Number(energy||0),soreness:Number(soreness||0)}); save(); todayView(); };
