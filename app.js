@@ -32,7 +32,7 @@ const quotes = [
   'Control the movement. Own the result.',
   'The work compounds when you keep showing up.',
   'No wasted sets. No guessing. Track it.',
-  'Calm mind. Sharp effort. Better numbers.'
+  'Small numbers logged daily become big changes later.'
 ];
 const quoteIndex = Math.floor(new Date(todayISO()+'T12:00').getTime()/86400000) % quotes.length;
 $('#dailyQuote').textContent = quotes[quoteIndex];
@@ -60,7 +60,7 @@ function todayView(){ const [rk,rt]=routineForToday(); const w=last(db.weights,x
   screen.innerHTML = `
   ${card('Daily Check-in', `<div class="grid"><div><label>Weight kg</label><input id="weight" inputmode="decimal" value="${w?.weight||''}" placeholder="84.2"></div><div><label>Sleep 1-5</label><input id="sleep" inputmode="numeric" value="${rec.sleep||''}"></div><div><label>Energy 1-5</label><input id="energy" inputmode="numeric" value="${rec.energy||''}"></div></div><label>Soreness 1-5</label><input id="soreness" inputmode="numeric" value="${rec.soreness||''}"><button class="btn primary" onclick="saveCheckin()">Save Check-in</button>`)}
   <div class="stack">${buttons.join('')}</div>
-  ${card('Today Plan', `<p><b>${d===5?'Friday = full rest':d===0?'Sunday = core only + backward treadmill':rt}</b></p><p class="small">Morning abs are shown only on the days you actually do them: Monday to Thursday and Saturday. Friday and Sunday hide it completely.</p><p class="small">Use 1 warm-up set, then 1 logged hard working set. Track actual rest time so intensity can be analysed later.</p><p class="small"><b>Rest guide:</b> pull-ups/dips/push-ups/hangs 2–3 min · rows/legs/knee raises 90–120 sec · abs 60–90 sec.</p>`)}
+  ${card('Today Plan', `<p><b>${d===5?'Friday = full rest':d===0?'Sunday = core only + backward treadmill':rt}</b></p><p class="small">Morning abs only appears on days you train it: Monday to Thursday and Saturday. Friday and Sunday remove it completely.</p><p class="small">Use 1 warm-up set, then 1 logged hard working set. Track actual rest time so intensity can be analysed later.</p><p class="small"><b>Rest guide:</b> pull-ups/dips/push-ups/hangs 2–3 min · rows/legs/knee raises 90–120 sec · abs 60–90 sec.</p>`)}
   `;
 }
 window.saveCheckin = function(){ const date=todayISO(); const weight=$('#weight').value; const sleep=$('#sleep').value, energy=$('#energy').value, soreness=$('#soreness').value; db.weights=db.weights.filter(x=>x.date!==date); if(weight) db.weights.push({date,weight:Number(weight)}); db.recovery=db.recovery.filter(x=>x.date!==date); db.recovery.push({date,sleep:Number(sleep||0),energy:Number(energy||0),soreness:Number(soreness||0)}); save(); todayView(); };
