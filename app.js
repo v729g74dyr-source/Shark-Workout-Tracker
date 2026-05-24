@@ -2,17 +2,40 @@ const $ = s => document.querySelector(s);
 const screen = $('#screen');
 const todayISO = () => new Date().toISOString().slice(0,10);
 const dayName = d => new Date(d + 'T12:00').toLocaleDateString('en-GB',{weekday:'long'});
-const storeKey = 'sharkTrainingTracker.v3';
+const storeKey = 'sharkTrainingTracker.v4';
+const oldKeys = ['sharkTrainingTracker.v3','sharkTrainingTracker.v2','sharkTrainingTracker.v1'];
 const defaults = {
   theme:'dark', weights:[], recovery:[], exerciseLogs:[], cardioLogs:[], notes:[],
   baselines:{pushups:20,pullups:1,chinups:3,rows:20,dips:10,kneeRaises:20,deadHang:55,crunches:20}
 };
-let db = JSON.parse(localStorage.getItem(storeKey) || 'null') || defaults;
+let db = JSON.parse(localStorage.getItem(storeKey) || 'null');
+if(!db){
+  for(const k of oldKeys){
+    const found = localStorage.getItem(k);
+    if(found){ db = JSON.parse(found); break; }
+  }
+}
+if(!db) db = structuredClone(defaults);
 function save(){ localStorage.setItem(storeKey, JSON.stringify(db)); }
 function setTheme(t){ db.theme=t; document.documentElement.classList.toggle('light',t==='light'); $('#themeToggle').textContent=t==='light'?'☀':'☾'; save(); }
 setTheme(db.theme || 'dark');
 $('#todayLabel').textContent = new Date().toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'long'});
 $('#themeToggle').onclick = () => setTheme(db.theme==='light'?'dark':'light');
+
+const quotes = [
+  'Win the first rep, then win the day.',
+  'Small improvements become impossible to ignore.',
+  'Discipline is quiet. Results are loud.',
+  'Do the logged set like it matters.',
+  'Progress is built before motivation arrives.',
+  'Beat yesterday by one clean rep.',
+  'Control the movement. Own the result.',
+  'The work compounds when you keep showing up.',
+  'No wasted sets. No guessing. Track it.',
+  'Calm mind. Sharp effort. Better numbers.'
+];
+const quoteIndex = Math.floor(new Date(todayISO()+'T12:00').getTime()/86400000) % quotes.length;
+$('#dailyQuote').textContent = quotes[quoteIndex];
 
 const routines = {
   morningAbs:[['Crunches','reps'],['Stomach vacuum','sec'],['Hollow hold','sec']],
@@ -26,21 +49,24 @@ function morningAbsAllowed(){ const d = new Date().getDay(); return d!==0 && d!=
 function last(arr, pred){ return [...arr].reverse().find(pred); }
 function weightStats(){ const sorted=[...db.weights].sort((a,b)=>a.date.localeCompare(b.date)); const cur=sorted.at(-1); const last7=sorted.slice(-7); const avg=last7.length? (last7.reduce((s,x)=>s+Number(x.weight||0),0)/last7.length).toFixed(1):'—'; return {cur,avg}; }
 function card(title, html){ return `<section class="card"><h2>${title}</h2>${html}</section>`; }
-function todayView(){ const [rk,rt]=routineForToday(); const w=last(db.weights,x=>x.date===todayISO()); const rec=last(db.recovery,x=>x.date===todayISO())||{};
- screen.innerHTML = `
- ${card('Morning Check-in', `<div class="grid"><div><label>Weight kg</label><input id="weight" inputmode="decimal" value="${w?.weight||''}" placeholder="84.2"></div><div><label>Sleep 1-5</label><input id="sleep" inputmode="numeric" value="${rec.sleep||''}"></div><div><label>Energy 1-5</label><input id="energy" inputmode="numeric" value="${rec.energy||''}"></div></div><label>Soreness 1-5</label><input id="soreness" inputmode="numeric" value="${rec.soreness||''}"><button class="btn primary" onclick="saveCheckin()">Save Check-in</button>`)}
- <div class="stack">
-  ${morningAbsAllowed()?`<button class="btn primary" onclick="workoutView('morningAbs','Morning Abs')">Morning Abs</button>`:`<button class="btn" disabled>Morning Abs Off</button>`}
-  ${rk&&rk!=='sundayCore'?`<button class="btn primary" onclick="workoutView('${rk}','${rt}')">Lunch Workout: ${rt}</button>`:rk==='sundayCore'?`<button class="btn primary" onclick="workoutView('sundayCore','Sunday Core Only')">Sunday Core Only</button>`:`<button class="btn" disabled>Rest Day</button>`}
-  <button class="btn primary" onclick="cardioView()">${new Date().getDay()===0?'Backward Treadmill':'Evening Cardio'}</button>
- </div>
- ${card('Today Plan', `<p><b>${new Date().getDay()===0?'Sunday = core only + backward treadmill':rt}</b></p><p class="small">Morning abs are scheduled every day except Friday and Sunday. Sunday is a separate core-only session plus backward treadmill.</p><p class="small">Use 1 warm-up set, then 1 logged hard working set. Track actual rest time so intensity can be analysed later.</p><p class="small"><b>Rest guide:</b> pull-ups/dips/push-ups/hangs 2–3 min · rows/legs/knee raises 90–120 sec · abs 60–90 sec.</p>`)}
- `;
+
+function todayView(){ const [rk,rt]=routineForToday(); const w=last(db.weights,x=>x.date===todayISO()); const rec=last(db.recovery,x=>x.date===todayISO())||{}; const d=new Date().getDay();
+  const buttons = [];
+  if(morningAbsAllowed()) buttons.push(`<button class="btn primary" onclick="workoutView('morningAbs','Morning Abs')">Morning Abs</button>`);
+  if(rk==='sundayCore') buttons.push(`<button class="btn primary" onclick="workoutView('sundayCore','Sunday Core')">Sunday Core</button>`);
+  else if(rk) buttons.push(`<button class="btn primary" onclick="workoutView('${rk}','${rt}')">Lunch Workout: ${rt}</button>`);
+  if(d!==5) buttons.push(`<button class="btn primary" onclick="cardioView()">${d===0?'Backward Treadmill':'Evening Cardio'}</button>`);
+
+  screen.innerHTML = `
+  ${card('Daily Check-in', `<div class="grid"><div><label>Weight kg</label><input id="weight" inputmode="decimal" value="${w?.weight||''}" placeholder="84.2"></div><div><label>Sleep 1-5</label><input id="sleep" inputmode="numeric" value="${rec.sleep||''}"></div><div><label>Energy 1-5</label><input id="energy" inputmode="numeric" value="${rec.energy||''}"></div></div><label>Soreness 1-5</label><input id="soreness" inputmode="numeric" value="${rec.soreness||''}"><button class="btn primary" onclick="saveCheckin()">Save Check-in</button>`)}
+  <div class="stack">${buttons.join('')}</div>
+  ${card('Today Plan', `<p><b>${d===5?'Friday = full rest':d===0?'Sunday = core only + backward treadmill':rt}</b></p><p class="small">Morning abs are shown only on the days you actually do them: Monday to Thursday and Saturday. Friday and Sunday hide it completely.</p><p class="small">Use 1 warm-up set, then 1 logged hard working set. Track actual rest time so intensity can be analysed later.</p><p class="small"><b>Rest guide:</b> pull-ups/dips/push-ups/hangs 2–3 min · rows/legs/knee raises 90–120 sec · abs 60–90 sec.</p>`)}
+  `;
 }
 window.saveCheckin = function(){ const date=todayISO(); const weight=$('#weight').value; const sleep=$('#sleep').value, energy=$('#energy').value, soreness=$('#soreness').value; db.weights=db.weights.filter(x=>x.date!==date); if(weight) db.weights.push({date,weight:Number(weight)}); db.recovery=db.recovery.filter(x=>x.date!==date); db.recovery.push({date,sleep:Number(sleep||0),energy:Number(energy||0),soreness:Number(soreness||0)}); save(); todayView(); };
 window.workoutView = function(key,title){ const exs=routines[key]; screen.innerHTML = `<section class="card"><h2>${title}</h2><p class="small">Log the working set. Warm-up is not counted as progress.</p></section>` + exs.map((e,i)=>exerciseCard(e[0],e[1],i)).join('') + `<button class="btn primary" onclick="saveWorkout('${key}','${title}')">Save Workout</button>`; setActive(null); };
-function exerciseCard(name,unit,i){ const prev=last(db.exerciseLogs,x=>x.exercise===name); return `<section class="card workout-card" data-ex="${name}" data-unit="${unit}"><h3>${i+1}. ${name}<span class="tag">${unit}</span></h3>${prev?`<p class="small">Last: ${prev.working} ${prev.unit} · ${prev.intensity} · rest ${prev.restSec}s</p>`:''}<div class="row"><div><label>Warm-up</label><input class="warm" inputmode="numeric"></div><div><label>Working set</label><input class="working" inputmode="numeric"></div><div><label>Rest sec</label><input class="rest" inputmode="numeric" value="120"></div></div><label>Intensity</label><div class="pill-row"><button class="pill">Easy</button><button class="pill">Moderate</button><button class="pill selected">Hard</button><button class="pill">Failure</button></div><label>Notes</label><textarea class="notes"></textarea></section>`; }
-document.addEventListener('click',e=>{ if(e.target.classList.contains('pill')){ e.target.parentElement.querySelectorAll('.pill').forEach(p=>p.classList.remove('selected')); e.target.classList.add('selected'); }});
+function exerciseCard(name,unit,i){ const prev=last(db.exerciseLogs,x=>x.exercise===name); const defaultRest = name.includes('Pull')||name.includes('Dips')||name.includes('Push')||name.includes('hang') ? 180 : (name.includes('Crunch')||name.includes('vacuum')||name.includes('Hollow')||name.includes('Side')||name.includes('Dead bug') ? 75 : 120); return `<section class="card workout-card" data-ex="${name}" data-unit="${unit}"><h3>${i+1}. ${name}<span class="tag">${unit}</span></h3>${prev?`<p class="small">Last: ${prev.working} ${prev.unit} · ${prev.intensity} · rest ${prev.restSec}s</p>`:''}<div class="row"><div><label>Warm-up</label><input class="warm" inputmode="numeric"></div><div><label>Working set</label><input class="working" inputmode="numeric"></div><div><label>Rest sec</label><input class="rest" inputmode="numeric" value="${defaultRest}"></div></div><label>Intensity</label><div class="pill-row"><button class="pill">Easy</button><button class="pill">Moderate</button><button class="pill selected">Hard</button><button class="pill">Failure</button></div><label>Notes</label><textarea class="notes"></textarea></section>`; }
+document.addEventListener('click',e=>{ if(e.target.classList.contains('pill')){ e.preventDefault(); e.target.parentElement.querySelectorAll('.pill').forEach(p=>p.classList.remove('selected')); e.target.classList.add('selected'); }});
 window.saveWorkout = function(key,title){ const date=todayISO(); document.querySelectorAll('.workout-card').forEach(c=>{ const working=c.querySelector('.working').value; if(!working) return; db.exerciseLogs.push({date,day:dayName(date),routine:key,routineTitle:title,exercise:c.dataset.ex,unit:c.dataset.unit,warmup:Number(c.querySelector('.warm').value||0),working:Number(working),restSec:Number(c.querySelector('.rest').value||0),intensity:c.querySelector('.pill.selected')?.textContent||'Hard',notes:c.querySelector('.notes').value,createdAt:new Date().toISOString()}); }); save(); progressView(); setActive('progress'); };
 window.cardioView = function(){ const isSun=new Date().getDay()===0; screen.innerHTML = card('Cardio', `<label>Type</label><select id="ctype"><option>${isSun?'Backward treadmill walk':'Incline Walk'}</option><option>Incline Walk</option><option>Backward treadmill walk</option><option>Easy walk</option></select><div class="grid"><div><label>Duration min</label><input id="cdur" inputmode="numeric" value="${isSun?30:60}"></div><div><label>Incline %</label><input id="cinc" inputmode="decimal" value="12"></div><div><label>Speed</label><input id="cspd" inputmode="decimal" value="${isSun?3:5}"></div></div><label>Effort</label><div class="pill-row"><button class="pill">Easy</button><button class="pill">Moderate</button><button class="pill selected">Hard</button><button class="pill">Max</button></div><label>Notes</label><textarea id="cnotes"></textarea><button class="btn primary" onclick="saveCardio()">Save Cardio</button>`); setActive(null); };
 window.saveCardio = function(){ db.cardioLogs.push({date:todayISO(),type:$('#ctype').value,durationMin:Number($('#cdur').value||0),incline:Number($('#cinc').value||0),speed:Number($('#cspd').value||0),effort:document.querySelector('.pill.selected')?.textContent||'Hard',notes:$('#cnotes').value,createdAt:new Date().toISOString()}); save(); progressView(); setActive('progress'); };
@@ -55,7 +81,7 @@ window.downloadJSON=()=>download(`training-data-${todayISO()}.json`,JSON.stringi
 window.downloadCSV=()=>{ const rows=[['type','date','day','routine','exercise','unit','warmup','working','restSec','intensity','weight','durationMin','incline','speed','effort','sleep','energy','soreness','notes']]; db.exerciseLogs.forEach(x=>rows.push(['exercise',x.date,x.day,x.routineTitle,x.exercise,x.unit,x.warmup,x.working,x.restSec,x.intensity,'','','','','','','','',x.notes])); db.weights.forEach(x=>rows.push(['weight',x.date,'','','','','','','','',x.weight,'','','','','','','',''])); db.cardioLogs.forEach(x=>rows.push(['cardio',x.date,'','',x.type,'','','','','','',x.durationMin,x.incline,x.speed,x.effort,'','','',x.notes])); db.recovery.forEach(x=>rows.push(['recovery',x.date,'','','','','','','','','','','','','',x.sleep,x.energy,x.soreness,''])); download(`training-data-${todayISO()}.csv`, rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n'), 'text/csv'); };
 window.importJSON=()=>{ const f=$('#importFile').files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{db=JSON.parse(r.result); save(); todayView(); setActive('today');}; r.readAsText(f); };
 window.clearData=()=>{ if(confirm('Delete all tracker data?')){db=structuredClone(defaults); save(); todayView();}};
-function settingsView(){ screen.innerHTML=card('Settings', `<button class="btn primary" onclick="setTheme('light')">Light Mode</button><button class="btn primary" onclick="setTheme('dark')">Dark Mode</button><p class="small">To install on iPhone: open in Safari → Share → Add to Home Screen.</p><p class="small">Data is stored locally on this phone/browser. Use JSON export as backup.</p>`); }
+function settingsView(){ screen.innerHTML=card('Settings', `<button class="btn primary" onclick="setTheme('light')">Light Mode</button><button class="btn primary" onclick="setTheme('dark')">Dark Mode</button><p class="small">To install on iPhone: open in Safari, tap Share, then Add to Home Screen.</p><p class="small">Data is stored locally on this phone/browser. Use JSON export as backup.</p>`); }
 function setActive(v){ document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v)); }
 document.querySelectorAll('.nav-btn').forEach(b=>b.onclick=()=>{ setActive(b.dataset.view); ({today:todayView,progress:progressView,history:historyView,export:exportView,settings:settingsView})[b.dataset.view](); });
 todayView();

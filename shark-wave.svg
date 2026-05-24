@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" role="img" aria-label="Blue shark wave artwork">
+  <defs>
+    <linearGradient id="sea" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#0b2f55"/>
+      <stop offset=".48" stop-color="#125b8f"/>
+      <stop offset="1" stop-color="#082238"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" x2="1">
+      <stop offset="0" stop-color="#f7d35c"/>
+      <stop offset="1" stop-color="#d79d1c"/>
+    </linearGradient>
+    <filter id="paper" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="3" seed="7" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="table" tableValues="0 .22"/></feComponentTransfer>
+      <feBlend in="SourceGraphic" mode="multiply"/>
+    </filter>
+    <pattern id="lines" width="22" height="22" patternUnits="userSpaceOnUse" patternTransform="rotate(-10)">
+      <path d="M0 11H22" stroke="#e7f7ff" stroke-opacity=".22" stroke-width="2"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="520" rx="42" fill="url(#sea)" filter="url(#paper)"/>
+  <rect width="1200" height="520" rx="42" fill="url(#lines)" opacity=".55"/>
+
+  <g fill="none" stroke="#d9f1ff" stroke-linecap="round" opacity=".86">
+    <path d="M-40 380C90 300 170 300 300 380S520 460 650 365s230-80 360 0 210 72 290 25" stroke-width="18"/>
+    <path d="M-30 430C100 350 200 350 330 430s250 90 390-8 255-80 390 0" stroke-width="9" opacity=".72"/>
+    <path d="M35 330c60-70 155-77 230-8 64 58 138 65 215 18" stroke-width="7" opacity=".65"/>
+    <path d="M770 308c88-64 170-55 235 12 45 46 90 58 148 29" stroke-width="7" opacity=".65"/>
+  </g>
+
+  <g transform="translate(275 118) rotate(-5)">
+    <path d="M118 182C240 34 485 16 712 138c-142 18-230 58-338 131-89 60-186 66-300 25 48-27 50-70 44-112Z" fill="#071827" stroke="#e8f7ff" stroke-width="8"/>
+    <path d="M432 72c32-58 75-83 130-72-28 43-41 84-34 122" fill="#071827" stroke="#e8f7ff" stroke-width="7"/>
+    <path d="M260 210c-42 52-80 80-142 93 17-56 37-98 72-132" fill="#071827" stroke="#e8f7ff" stroke-width="7"/>
+    <path d="M704 138c62 8 112 35 148 77-61 1-111-9-160-34" fill="#071827" stroke="#e8f7ff" stroke-width="7"/>
+    <circle cx="612" cy="126" r="12" fill="url(#gold)"/>
+    <path d="M632 162c39 12 72 11 110-3" stroke="#e8f7ff" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M168 200c119 37 274 29 461-70" stroke="#2f83b7" stroke-width="10" fill="none" opacity=".58"/>
+    <path d="M205 238c90 25 192 18 308-38" stroke="#68b9e6" stroke-width="5" fill="none" opacity=".55"/>
+  </g>
+
+  <g fill="url(#gold)" opacity=".9">
+    <circle cx="95" cy="75" r="4"/><circle cx="118" cy="118" r="3"/><circle cx="1040" cy="86" r="4"/><circle cx="1088" cy="132" r="3"/>
+  </g>
+</svg>

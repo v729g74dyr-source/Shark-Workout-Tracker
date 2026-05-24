@@ -1,9 +1,8 @@
 {
-  "name": "Shark Training Tracker",
+  "name": "Shark Training Log",
   "short_name": "Training",
-  "start_url": "./index.html",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#071827",
-  "theme_color": "#071827",
-  "icons": []
+  "theme_color": "#071827"
 }

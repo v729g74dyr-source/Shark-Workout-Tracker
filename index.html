@@ -4,29 +4,33 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#071827" />
-  <title>Shark Training Tracker</title>
+  <title>Shark Training Log</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div id="app" class="app-shell">
     <header class="hero">
-      <div>
+      <div class="hero-copy">
         <p class="eyebrow" id="todayLabel">Today</p>
         <h1>Training Log</h1>
-        <p class="subtitle">Calm blue cyber training tracker</p>
+        <p class="quote" id="dailyQuote"></p>
       </div>
       <button id="themeToggle" class="icon-btn" aria-label="Toggle light and dark mode">☾</button>
     </header>
 
+    <div class="shark-banner" aria-hidden="true">
+      <img src="assets/shark-wave.svg" alt="" />
+    </div>
+
     <main id="screen" class="screen"></main>
 
     <nav class="bottom-nav" aria-label="Main navigation">
-      <button data-view="today" class="nav-btn active"><span>⌂</span>Today</button>
-      <button data-view="progress" class="nav-btn"><span>▧</span>Progress</button>
-      <button data-view="history" class="nav-btn"><span>☷</span>History</button>
-      <button data-view="export" class="nav-btn"><span>⇩</span>Export</button>
-      <button data-view="settings" class="nav-btn"><span>⚙</span>Settings</button>
+      <button data-view="today" class="nav-btn active"><span>Home</span></button>
+      <button data-view="progress" class="nav-btn"><span>Progress</span></button>
+      <button data-view="history" class="nav-btn"><span>History</span></button>
+      <button data-view="export" class="nav-btn"><span>Export</span></button>
+      <button data-view="settings" class="nav-btn"><span>Settings</span></button>
     </nav>
   </div>
   <script src="app.js"></script>
