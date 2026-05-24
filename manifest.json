@@ -1,8 +1,8 @@
 {
-  "name": "Hokusai Cyber Training",
+  "name": "Shark Training Log",
   "short_name": "Training",
-  "display": "standalone",
   "start_url": "./",
-  "background_color": "#031426",
-  "theme_color": "#031426"
+  "display": "standalone",
+  "background_color": "#071827",
+  "theme_color": "#071827"
 }
