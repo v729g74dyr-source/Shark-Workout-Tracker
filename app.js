@@ -144,6 +144,26 @@ window.saveCheckin = function(){ const date=todayISO(); const weight=$('#weight'
 window.workoutView = function(key,title){ const exs=routines[key]; screen.innerHTML = `<section class="card"><h2>${title}</h2><p class="small">Log the working set. Warm-up is not counted as progress.</p></section>` + exs.map((e,i)=>exerciseCard(e[0],e[1],i)).join('') + `<button class="btn primary" onclick="saveWorkout('${key}','${title}')">Save Workout</button>`; setActive(null); };
 
 
+
+function exerciseImage(name){
+  const n=name.toLowerCase();
+  if(n.includes('pull-up')) return 'assets/images/pull-up.png';
+  if(n.includes('chin')) return 'assets/images/chin-up.png';
+  if(n.includes('hang')) return 'assets/images/dead-hang.png';
+  if(n.includes('row')) return 'assets/images/reverse-row.png';
+  if(n.includes('push')) return 'assets/images/power-tower-pushup.png';
+  if(n.includes('dip')) return 'assets/images/dip.png';
+  if(n.includes('goblet')) return 'assets/images/goblet-squat.png';
+  if(n.includes('rdl')) return 'assets/images/kb-rdl.png';
+  if(n.includes('knee')) return 'assets/images/captain-chair-knee-raise.png';
+  if(n.includes('reverse crunch')) return 'assets/images/reverse-crunch.png';
+  if(n.includes('crunch')) return 'assets/images/crunches.png';
+  if(n.includes('vacuum')) return 'assets/images/stomach-vacuum.png';
+  if(n.includes('hollow')) return 'assets/images/hollow-hold.png';
+  if(n.includes('dead bug')) return 'assets/images/dead-bug.png';
+  if(n.includes('plank')) return 'assets/images/plank.png';
+  return '';
+}
 function artLabel(name){
   const n=name.toLowerCase();
   if(n.includes('pull-up')) return ['Pull-up form image','pullup'];
@@ -178,7 +198,7 @@ function exerciseCard(name,unit,i){
   const defaultRest = name.includes('Pull')||name.includes('Dips')||name.includes('Push')||name.includes('hang') ? 180 : (name.includes('Crunch')||name.includes('vacuum')||name.includes('Hollow')||name.includes('Side')||name.includes('Dead bug') ? 75 : 120);
   const art = artLabel(name);
   return `<section class="card workout-card visual-workout-card big-art-card" data-ex="${name}" data-unit="${unit}">
-    <div class="exercise-big-image art-${art[1]}">
+    <div class="exercise-big-image art-${art[1]}" style="background-image:linear-gradient(180deg,rgba(3,20,38,.04),rgba(3,20,38,.78)),url(\'${exerciseImage(name)}\')">
       <div class="moon-dot"></div>
       <div class="figure-symbol"></div>
       <div class="big-image-overlay">
@@ -215,7 +235,7 @@ document.addEventListener('click',e=>{
 });
 
 window.saveWorkout = function(key,title){ const date=todayISO(); document.querySelectorAll('.workout-card').forEach(c=>{ const working=c.querySelector('.working').value; if(!working) return; db.exerciseLogs.push({date,day:dayName(date),routine:key,routineTitle:title,exercise:c.dataset.ex,unit:c.dataset.unit,warmup:Number(c.querySelector('.warm').value||0),working:Number(working),restSec:Number(c.querySelector('.rest').value||0),intensity:c.querySelector('.pill.selected')?.textContent||'Hard',notes:c.querySelector('.notes').value,createdAt:new Date().toISOString()}); }); save(); progressView(); setActive('progress'); };
-window.cardioView = function(){ const isSun=new Date().getDay()===0; screen.innerHTML = card('Cardio', `<label>Type</label><select id="ctype"><option>${isSun?'Backward treadmill walk':'Incline Walk'}</option><option>Incline Walk</option><option>Backward treadmill walk</option><option>Easy walk</option></select><div class="grid"><div><label>Duration min</label><input id="cdur" inputmode="numeric" value="${isSun?30:60}"></div><div><label>Incline %</label><input id="cinc" inputmode="decimal" value="12"></div><div><label>Speed</label><input id="cspd" inputmode="decimal" value="${isSun?3:5}"></div></div><label>Effort</label><div class="pill-row"><button class="pill">Easy</button><button class="pill">Moderate</button><button class="pill selected">Hard</button><button class="pill">Max</button></div><label>Notes</label><textarea id="cnotes"></textarea><button class="btn primary" onclick="saveCardio()">Save Cardio</button>`); setActive(null); };
+window.cardioView = function(){ const isSun=new Date().getDay()===0; screen.innerHTML = card('Cardio', `<div class="cardio-hero-img" style="background-image:linear-gradient(180deg,rgba(3,20,38,.05),rgba(3,20,38,.72)),url('${isSun?'assets/images/incline-walk-backward.png':'assets/images/incline-walk-forward.png'}')"></div><label>Type</label><select id="ctype"><option>${isSun?'Backward treadmill walk':'Incline Walk'}</option><option>Incline Walk</option><option>Backward treadmill walk</option><option>Easy walk</option></select><div class="grid"><div><label>Duration min</label><input id="cdur" inputmode="numeric" value="${isSun?30:60}"></div><div><label>Incline %</label><input id="cinc" inputmode="decimal" value="12"></div><div><label>Speed</label><input id="cspd" inputmode="decimal" value="${isSun?3:5}"></div></div><label>Effort</label><div class="pill-row"><button class="pill">Easy</button><button class="pill">Moderate</button><button class="pill selected">Hard</button><button class="pill">Max</button></div><label>Notes</label><textarea id="cnotes"></textarea><button class="btn primary" onclick="saveCardio()">Save Cardio</button>`); setActive(null); };
 window.saveCardio = function(){ db.cardioLogs.push({date:todayISO(),type:$('#ctype').value,durationMin:Number($('#cdur').value||0),incline:Number($('#cinc').value||0),speed:Number($('#cspd').value||0),effort:document.querySelector('.pill.selected')?.textContent||'Hard',notes:$('#cnotes').value,createdAt:new Date().toISOString()}); save(); progressView(); setActive('progress'); };
 function progressView(){ const ws=weightStats(); const best = ex => { const vals=db.exerciseLogs.filter(x=>x.exercise===ex).map(x=>x.working); return vals.length?Math.max(...vals):'—'; };
  screen.innerHTML = `${card('Weight Trend', `<div class="big-metric">${ws.cur?ws.cur.weight+' kg':'—'}</div><p class="small">7-day average: ${ws.avg} kg</p><canvas id="weightChart" width="420" height="180"></canvas>`)}${card('Strength Bests', `<div class="list">${['Push-ups','Pull-ups','Chin-ups','Dips','Reverse rows','Dead / active hang','Captain chair knee raises','Crunches'].map(x=>`<div class="list-item"><span>${x}</span><b>${best(x)}</b></div>`).join('')}</div>`)}`; drawWeightChart(); }

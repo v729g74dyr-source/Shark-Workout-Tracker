@@ -396,3 +396,44 @@ label{font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:800
     grid-template-columns:42px 66px 42px;
   }
 }
+
+
+/* Phase 10: real uploaded images wired in */
+.hero{
+  background-image:linear-gradient(180deg,rgba(3,20,38,.06),rgba(3,20,38,.72)),url('assets/images/home-hero.png') !important;
+  background-size:cover !important;
+  background-position:center !important;
+}
+.exercise-big-image{
+  background-size:cover !important;
+  background-position:center !important;
+}
+.exercise-big-image:before,
+.exercise-big-image:after,
+.exercise-big-image .moon-dot,
+.exercise-big-image .figure-symbol{
+  display:none !important;
+}
+.big-image-overlay{
+  background:linear-gradient(180deg,rgba(3,20,38,.20),rgba(3,20,38,.78)) !important;
+}
+.cardio-hero-img{
+  height:min(52vh,430px);
+  min-height:330px;
+  border-radius:28px;
+  margin:0 0 16px 0;
+  border:2px solid rgba(214,167,45,.72);
+  background-size:cover;
+  background-position:center;
+  box-shadow:0 16px 36px rgba(0,0,0,.35);
+}
+.home-training-card .home-art{
+  background-size:cover !important;
+  background-position:center !important;
+}
+.home-abs .home-art{background-image:linear-gradient(180deg,rgba(3,20,38,.08),rgba(3,20,38,.55)),url('assets/images/crunches.png') !important}
+.home-core .home-art{background-image:linear-gradient(180deg,rgba(3,20,38,.08),rgba(3,20,38,.55)),url('assets/images/plank.png') !important}
+.home-power .home-art{background-image:linear-gradient(180deg,rgba(3,20,38,.08),rgba(3,20,38,.55)),url('assets/images/pull-up.png') !important}
+.home-cardio .home-art{background-image:linear-gradient(180deg,rgba(3,20,38,.08),rgba(3,20,38,.55)),url('assets/images/incline-walk-forward.png') !important}
+.home-backward .home-art{background-image:linear-gradient(180deg,rgba(3,20,38,.08),rgba(3,20,38,.55)),url('assets/images/incline-walk-backward.png') !important}
+.home-art:before,.home-art:after{display:none !important}
