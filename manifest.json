@@ -1,0 +1,8 @@
+{
+  "name": "Shark Training Log",
+  "short_name": "Training",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#071827",
+  "theme_color": "#071827"
+}
