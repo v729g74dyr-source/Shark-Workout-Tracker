@@ -1,0 +1,1363 @@
+const $ = s => document.querySelector(s);
+const screen = $('#screen');
+const todayISO = () => new Date().toISOString().slice(0,10);
+const dayName = d => new Date(d + 'T12:00').toLocaleDateString('en-GB',{weekday:'long'});
+const storeKey = 'sharkTrainingTracker.v4';
+const oldKeys = ['sharkTrainingTracker.v3','sharkTrainingTracker.v2','sharkTrainingTracker.v1'];
+const defaults = {
+  theme:'dark', weights:[], recovery:[], exerciseLogs:[], cardioLogs:[], notes:[],
+  baselines:{pushups:20,pullups:1,chinups:3,rows:20,dips:10,kneeRaises:20,deadHang:55,crunches:20}
+};
+let db = JSON.parse(localStorage.getItem(storeKey) || 'null');
+if(!db){
+  for(const k of oldKeys){
+    const found = localStorage.getItem(k);
+    if(found){ db = JSON.parse(found); break; }
+  }
+}
+if(!db) db = structuredClone(defaults);
+function save(){ localStorage.setItem(storeKey, JSON.stringify(db)); }
+function setTheme(t){ db.theme=t; document.documentElement.classList.toggle('light',t==='light'); $('#themeToggle').textContent=t==='light'?'☀':'☾'; save(); }
+setTheme(db.theme || 'dark');
+$('#todayLabel').textContent = new Date().toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'long'});
+$('#themeToggle').onclick = () => setTheme(db.theme==='light'?'dark':'light');
+
+const quotes = [
+  'Win the first rep, then win the day.',
+  'Small improvements become impossible to ignore.',
+  'Discipline is quiet. Results are loud.',
+  'Do the logged set like it matters.',
+  'Progress is built before motivation arrives.',
+  'Beat yesterday by one clean rep.',
+  'Control the movement. Own the result.',
+  'The work compounds when you keep showing up.',
+  'No wasted sets. No guessing. Track it.',
+  'Small numbers logged daily become big changes later.'
+];
+const quoteIndex = Math.floor(new Date(todayISO()+'T12:00').getTime()/86400000) % quotes.length;
+$('#dailyQuote').textContent = quotes[quoteIndex];
+
+const routines = {
+  morningAbs:[['Crunches','reps'],['Stomach vacuum','sec'],['Hollow hold','sec']],
+  pullup:[['Pull-ups','reps'],['Reverse rows','reps'],['Push-ups','reps'],['Dips','reps'],['Goblet squat 10kg','reps'],['KB RDL 10kg','reps'],['Captain chair knee raises','reps']],
+  hang:[['Dead / active hang','sec'],['Push-ups','reps'],['Dips','reps'],['Goblet squat 10kg','reps'],['KB RDL 10kg','reps'],['Captain chair knee raises','reps']],
+  chinup:[['Chin-ups','reps'],['Reverse rows','reps'],['Push-ups','reps'],['Dips','reps'],['Goblet squat 10kg','reps'],['KB RDL 10kg','reps'],['Captain chair knee raises','reps']],
+  sundayCore:[['Crunches','reps'],['Reverse crunches','reps'],['Stomach vacuum','sec'],['Hollow hold','sec'],['Dead bug','reps each side'],['Plank','sec each side']]
+};
+function routineForToday(){ const d = new Date().getDay(); if(d===1||d===6) return ['pullup','Pull-up + Full Body']; if(d===3) return ['chinup','Chin-up + Full Body']; if(d===2||d===4) return ['hang','Hang + Push + Legs']; if(d===0) return ['sundayCore','Sunday Core']; return [null,'Rest Day']; }
+function morningAbsAllowed(){ const d = new Date().getDay(); return d!==0 && d!==5; }
+function last(arr, pred){ return [...arr].reverse().find(pred); }
+function weightStats(){ const sorted=[...db.weights].sort((a,b)=>a.date.localeCompare(b.date)); const cur=sorted.at(-1); const last7=sorted.slice(-7); const avg=last7.length? (last7.reduce((s,x)=>s+Number(x.weight||0),0)/last7.length).toFixed(1):'—'; return {cur,avg}; }
+function card(title, html){ return `<section class="card"><h2>${title}</h2>${html}</section>`; }
+
+
+function todayView(){
+  const [rk,rt]=routineForToday();
+  const w=last(db.weights,x=>x.date===todayISO());
+  const rec=last(db.recovery,x=>x.date===todayISO())||{};
+  const d=new Date().getDay();
+
+  const cards = [];
+  if(morningAbsAllowed()) cards.push({
+    cls:'home-abs', key:'morningAbs', img:'assets/images/today-morning-abs.png', title:'Morning Abs', meta:'Morning',
+    desc:'Crunches · Stomach vacuum · Hollow hold',
+    action:`workoutView('morningAbs','Morning Abs')`
+  });
+  if(rk==='sundayCore') cards.push({
+    cls:'home-core', key:'sundayCore', img:'assets/images/today-sunday-core.png', title:'Sunday Core', meta:'Core only',
+    desc:'Crunches · Reverse crunches · Vacuum · Hollow · Dead bug · Plank',
+    action:`workoutView('sundayCore','Sunday Core')`
+  });
+  else if(rk) cards.push({
+    cls:'home-power', key:rk, img:'assets/images/today-power-tower.png', title:'Power Tower', meta:'Lunch',
+    desc:rt,
+    action:`workoutView('${rk}','${rt}')`
+  });
+  if(d!==5) cards.push({
+    cls:d===0?'home-backward':'home-cardio', key:d===0?'cardio-backward':'cardio-forward', img:d===0?'assets/images/incline-walk-backward.png':'assets/images/incline-walk-forward.png',
+    title:d===0?'Backward Treadmill':'Forward Incline Walk',
+    meta:d===0?'Sunday cardio':'Evening',
+    desc:d===0?'30 min · 12% incline · speed 3':'60 min · 12% incline · speed 5',
+    action:'cardioView()'
+  });
+  if(d===5) cards.push({
+    cls:'home-rest', key:'rest', title:'Rest Day', meta:'Friday',
+    desc:'No morning abs, no power tower, no treadmill required.',
+    action:'settingsView(); setActive("settings")'
+  });
+
+  screen.innerHTML = `
+    <section class="quick-check">
+      <button class="quick-tile" onclick="quickLog('weight','Weight kg','${w?.weight||''}')"><span>⚖️</span><small>Weight</small><b>${w?.weight? w.weight+' kg':'Tap'}</b></button>
+      <button class="quick-tile" onclick="quickLog('sleep','Sleep 1-5','${rec.sleep||''}')"><span>😴</span><small>Sleep</small><b>${rec.sleep?rec.sleep+'/5':'Tap'}</b></button>
+      <button class="quick-tile" onclick="quickLog('energy','Energy 1-5','${rec.energy||''}')"><span>⚡</span><small>Energy</small><b>${rec.energy?rec.energy+'/5':'Tap'}</b></button>
+      <button class="quick-tile" onclick="quickLog('soreness','Soreness 1-5','${rec.soreness||''}')"><span>🔥</span><small>Sore</small><b>${rec.soreness?rec.soreness+'/5':'Tap'}</b></button>
+    </section>
+
+    <section class="home-plan">
+      <div class="home-title-row">
+        <div>
+          <p class="eyebrow-mini">${dayName(todayISO())}</p>
+          <h2>Today's Training</h2>
+        </div>
+        <span class="date-chip">${todayISO()}</span>
+      </div>
+      <div class="home-card-stack">
+        ${cards.map(c=>`
+          <button class="home-training-card ${c.cls}" data-key="${c.key||''}" data-title="${c.title}" onclick="${c.action}">
+            ${p22Stamp(c.key||'')}<div class="home-art" style="background-image:linear-gradient(180deg,rgba(3,20,38,.05),rgba(3,20,38,.45)),url('${c.img}')"></div>
+            <div class="home-card-copy">
+              <span>${c.meta}</span>
+              <strong>${c.title}</strong>
+              <p>${c.desc}</p>
+            </div>
+            <b class="arrow">›</b>
+          </button>
+        `).join('')}
+      </div>
+    </section>
+
+    <section class="card compact-guidance">
+      <h2>Training Rule</h2>
+      <p class="small">Use 1 warm-up set, then 1 logged hard working set. Track rest time and intensity for AI analysis.</p>
+      <p class="small"><b>Rest:</b> pull-ups/dips/push-ups/hangs 2–3 min · rows/legs/knee raises 90–120 sec · abs 60–90 sec.</p>
+    </section>
+  `;
+}
+
+function homeView(){ todayView(); }
+window.quickLog = function(field,label,current){
+  const val = prompt(label, current || '');
+  if(val===null) return;
+  const date=todayISO();
+  const todayWeight = last(db.weights,x=>x.date===date);
+  const todayRec = last(db.recovery,x=>x.date===date) || {date,sleep:0,energy:0,soreness:0};
+  if(field==='weight'){
+    db.weights=db.weights.filter(x=>x.date!==date);
+    if(val) db.weights.push({date,weight:Number(val)});
+  } else {
+    db.recovery=db.recovery.filter(x=>x.date!==date);
+    todayRec[field]=Number(val||0);
+    db.recovery.push(todayRec);
+  }
+  save(); todayView();
+};
+window.saveCheckin = function(){ const date=todayISO(); const weight=$('#weight').value; const sleep=$('#sleep').value, energy=$('#energy').value, soreness=$('#soreness').value; db.weights=db.weights.filter(x=>x.date!==date); if(weight) db.weights.push({date,weight:Number(weight)}); db.recovery=db.recovery.filter(x=>x.date!==date); db.recovery.push({date,sleep:Number(sleep||0),energy:Number(energy||0),soreness:Number(soreness||0)}); save(); todayView(); };
+window.workoutView = function(key,title){ const exs=routines[key]; screen.innerHTML = `<section class="card"><h2>${title}</h2><p class="small">Log the working set. Warm-up is not counted as progress.</p></section>` + exs.map((e,i)=>exerciseCard(e[0],e[1],i)).join('') + `<button class="btn primary" onclick="saveWorkout('${key}','${title}')">Save Workout</button>`; setActive(null); };
+
+
+
+function exerciseImage(name){
+  const n=name.toLowerCase();
+  if(n.includes('pull-up')) return 'assets/images/pull-up.png';
+  if(n.includes('chin')) return 'assets/images/chin-up.png';
+  if(n.includes('hang')) return 'assets/images/dead-hang.png';
+  if(n.includes('row')) return 'assets/images/reverse-row.png';
+  if(n.includes('push')) return 'assets/images/power-tower-pushup.png';
+  if(n.includes('dip')) return 'assets/images/dip.png';
+  if(n.includes('goblet')) return 'assets/images/goblet-squat.png';
+  if(n.includes('rdl')) return 'assets/images/kb-rdl.png';
+  if(n.includes('knee')) return 'assets/images/captain-chair-knee-raise.png';
+  if(n.includes('reverse crunch')) return 'assets/images/reverse-crunch.png';
+  if(n.includes('crunch')) return 'assets/images/crunches.png';
+  if(n.includes('vacuum')) return 'assets/images/stomach-vacuum.png';
+  if(n.includes('hollow')) return 'assets/images/hollow-hold.png';
+  if(n.includes('dead bug')) return 'assets/images/dead-bug.png';
+  if(n.includes('plank')) return 'assets/images/plank.png';
+  return '';
+}
+function artLabel(name){
+  const n=name.toLowerCase();
+  if(n.includes('pull-up')) return ['Pull-up form image','pullup'];
+  if(n.includes('chin')) return ['Chin-up form image','chinup'];
+  if(n.includes('hang')) return ['Dead / active hang image','hang'];
+  if(n.includes('row')) return ['Reverse row form image','row'];
+  if(n.includes('push')) return ['Push-up form image','pushup'];
+  if(n.includes('dip')) return ['Dip form image','dip'];
+  if(n.includes('goblet')) return ['Goblet squat form image','squat'];
+  if(n.includes('rdl')) return ['Kettlebell RDL form image','rdl'];
+  if(n.includes('knee')) return ['Captain chair knee raise image','knee'];
+  if(n.includes('reverse crunch')) return ['Reverse crunch image','reversecrunch'];
+  if(n.includes('crunch')) return ['Crunch form image','crunch'];
+  if(n.includes('vacuum')) return ['Stomach vacuum image','vacuum'];
+  if(n.includes('hollow')) return ['Hollow hold image','hollow'];
+  if(n.includes('dead bug')) return ['Dead bug image','deadbug'];
+  if(n.includes('plank')) return ['Plank image','sideplank'];
+  return ['Exercise image','default'];
+}
+function stepper(label, cls, value=''){
+  return `<div class="stepper-row">
+    <span>${label}</span>
+    <div class="stepper">
+      <button class="step-btn minus" type="button">−</button>
+      <input class="${cls}" inputmode="numeric" value="${value}">
+      <button class="step-btn plus" type="button">+</button>
+    </div>
+  </div>`;
+}
+
+function setStepper(label, cls, value=''){
+  return `<div class="stepper-row"><span>${label}</span><div class="stepper"><button class="step-btn minus" type="button">−</button><input class="${cls} set-value" inputmode="numeric" value="${value}"><button class="step-btn plus" type="button">+</button></div></div>`;
+}
+function timedExercise(name, unit){
+  const n=String(name).toLowerCase(), u=String(unit).toLowerCase();
+  return u.includes('sec') || n.includes('hang') || n.includes('vacuum') || n.includes('hollow') || n.includes('plank');
+}
+function absCoreExercise(name){
+  const n=String(name).toLowerCase();
+  return n.includes('crunch') || n.includes('vacuum') || n.includes('hollow') || n.includes('dead bug') || n.includes('plank');
+}
+
+function exerciseCard(name,unit,i){
+  const prev=last(db.exerciseLogs,x=>x.exercise===name);
+  const defaultRest = name.includes('Pull')||name.includes('Dips')||name.includes('Push')||name.includes('hang') ? 180 : (name.includes('Crunch')||name.includes('vacuum')||name.includes('Hollow')||name.includes('Plank')||name.includes('Dead bug') ? 75 : 120);
+  const art = artLabel(name);
+  const isTimed = timedExercise(name, unit);
+  const isAbsCore = absCoreExercise(name);
+  const setFields = isAbsCore ? `${setStepper(isTimed?'Set 1 seconds':'Set 1','set1')}${setStepper(isTimed?'Set 2 seconds':'Set 2','set2')}${setStepper(isTimed?'Set 3 seconds':'Set 3','set3')}` : `${stepper('Warm-up','warm')}${stepper('Working set','working')}`;
+  return `<section class="card workout-card visual-workout-card big-art-card" data-ex="${name}" data-unit="${unit}">
+    <div class="exercise-big-image art-${art[1]}" style="background-image:linear-gradient(180deg,rgba(3,20,38,.04),rgba(3,20,38,.78)),url('${exerciseImage(name)}')">
+      <div class="moon-dot"></div><div class="figure-symbol"></div>
+      <div class="big-image-overlay"><span>${exerciseUnitLabel(name, unit)}</span><h3>${i+1}. ${name}</h3><p>${prev?`Last: ${prev.working} ${prev.unit} · ${prev.intensity} · rest ${prev.restSec}s`:'Log your working sets.'}</p></div>
+    </div>
+    <div class="compact-logger">
+      ${setFields}
+      ${isTimed?`<button type="button" class="btn stopwatch-btn">Start Stopwatch</button>`:''}
+      ${stepper('Rest sec','rest',defaultRest)}
+      <button type="button" class="btn primary rest-start-btn">Start Rest Timer</button>
+      <label>Intensity</label>
+      <div class="pill-row"><button class="pill">Easy</button><button class="pill">Moderate</button><button class="pill selected">Hard</button><button class="pill">Failure</button></div>
+      <label>Notes</label><textarea class="notes"></textarea>
+    </div>
+  </section>`;
+}
+document.addEventListener('click',e=>{
+  if(e.target.classList.contains('pill')){
+    e.preventDefault();
+    e.target.parentElement.querySelectorAll('.pill').forEach(p=>p.classList.remove('selected'));
+    e.target.classList.add('selected');
+  }
+  if(e.target.classList.contains('plus') || e.target.classList.contains('minus')){
+    e.preventDefault();
+    const input = e.target.parentElement.querySelector('input');
+    const current = Number(input.value || 0);
+    const step = input.classList.contains('rest') ? 15 : 1;
+    const next = e.target.classList.contains('plus') ? current + step : Math.max(0, current - step);
+    input.value = next;
+  }
+});
+
+window.saveWorkout = function(key,title){ const date=todayISO(); document.querySelectorAll('.workout-card').forEach(c=>{ const working=c.querySelector('.working').value; if(!working) return; db.exerciseLogs.push({date,day:dayName(date),routine:key,routineTitle:title,exercise:c.dataset.ex,unit:c.dataset.unit,warmup:Number(c.querySelector('.warm').value||0),working:Number(working),restSec:Number(c.querySelector('.rest').value||0),intensity:c.querySelector('.pill.selected')?.textContent||'Hard',notes:c.querySelector('.notes').value,createdAt:new Date().toISOString()}); }); save(); homeView(); setActive('home'); };
+window.cardioView = function(){ const isSun=new Date().getDay()===0; screen.innerHTML = card('Cardio', `<div class="cardio-hero-img" style="background-image:linear-gradient(180deg,rgba(3,20,38,.05),rgba(3,20,38,.72)),url('${isSun?'assets/images/incline-walk-backward.png':'assets/images/incline-walk-forward.png'}')"></div><label>Type</label><select id="ctype"><option>${isSun?'Backward treadmill walk':'Incline Walk'}</option><option>Incline Walk</option><option>Backward treadmill walk</option><option>Easy walk</option></select><div class="grid"><div><label>Duration min</label><input id="cdur" inputmode="numeric" value="${isSun?30:60}"></div><div><label>Incline %</label><input id="cinc" inputmode="decimal" value="12"></div><div><label>Speed</label><input id="cspd" inputmode="decimal" value="${isSun?3:5}"></div></div><label>Effort</label><div class="pill-row"><button class="pill">Easy</button><button class="pill">Moderate</button><button class="pill selected">Hard</button><button class="pill">Max</button></div><label>Notes</label><textarea id="cnotes"></textarea><button class="btn primary" onclick="saveCardio()">Save Cardio</button>`); setActive(null); };
+window.saveCardio = function(){ db.cardioLogs.push({date:todayISO(),type:$('#ctype').value,durationMin:Number($('#cdur').value||0),incline:Number($('#cinc').value||0),speed:Number($('#cspd').value||0),effort:document.querySelector('.pill.selected')?.textContent||'Hard',notes:$('#cnotes').value,createdAt:new Date().toISOString()}); save(); homeView(); setActive('home'); };
+
+
+
+
+function progressView(){
+  const ws=weightStats();
+  const timed=['stomach vacuum','hollow hold','dead / active hang','plank'];
+  const best = ex => {
+    const vals=db.exerciseLogs
+      .filter(x=>String(x.exercise||'').toLowerCase()===String(ex||'').toLowerCase())
+      .map(x=>x.working);
+    if(!vals.length) return '—';
+    const v=Math.max(...vals);
+    return timed.includes(String(ex).toLowerCase()) ? `${v} sec` : v;
+  };
+  const bestExercises=[
+    'Crunches','Stomach vacuum','Hollow hold','Pull-ups','Chin-ups',
+    'Dead / active hang','Reverse rows','Push-ups','Dips','Goblet squat 10kg',
+    'KB RDL 10kg','Captain chair knee raises','Reverse crunches','Dead bug','Plank'
+  ];
+
+  screen.innerHTML=`
+    <div id="progressSnapshotArea">
+      ${card('Weight Trend', `<div class="big-metric">${ws.cur?ws.cur.weight+' kg':'—'}</div><p class="small">7-day average: ${ws.avg} kg</p><canvas id="weightChart" width="420" height="240"></canvas><p class="axis-note">Y axis = body weight · X axis = date</p>`)}
+      ${card('Exercise Trends', `<div class="trend-grid">${exerciseTrendCard('pull','Pull-ups')}${exerciseTrendCard('push','Push-ups')}${exerciseTrendCard('crunch','Crunches')}</div>`)}
+      ${card('Best Sets', `<div class="list">${bestExercises.map(x=>`<div class="list-item"><span>${x}</span><b>${best(x)}</b></div>`).join('')}</div>`)}
+    </div>
+
+    <button class="floating-snapshot-btn" onclick="shareProgressSnapshot()">
+      <span class="snapshot-cam">
+        <span class="cam-body"></span>
+        <span class="cam-lens"></span>
+        <span class="cam-flash"></span>
+      </span>
+    </button>
+  `;
+  drawWeightChart();
+}
+function drawWeightChart(){
+  const c=$('#weightChart');
+  if(!c) return;
+  const ctx=c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+
+  const data=[...db.weights].sort((a,b)=>a.date.localeCompare(b.date)).slice(-14);
+  const css=getComputedStyle(document.documentElement);
+  const muted=css.getPropertyValue('--muted') || '#9db7cc';
+  const accent=css.getPropertyValue('--accent') || '#d6a72d';
+  const line=css.getPropertyValue('--line') || '#1d4a70';
+  const text=css.getPropertyValue('--text') || '#fff';
+
+  if(data.length<2){
+    ctx.fillStyle=muted;
+    ctx.font='15px -apple-system, sans-serif';
+    ctx.fillText('Add at least 2 weights to see trend',30,120);
+    return;
+  }
+
+  const vals=data.map(x=>Number(x.weight));
+  const rawMin=Math.min(...vals);
+  const rawMax=Math.max(...vals);
+  const min=Math.floor((rawMin-0.5)*2)/2;
+  const max=Math.ceil((rawMax+0.5)*2)/2;
+  const padL=48, padR=16, padT=18, padB=46;
+  const w=c.width-padL-padR;
+  const h=c.height-padT-padB;
+
+  // grid and y axis labels
+  ctx.strokeStyle=line;
+  ctx.lineWidth=1;
+  ctx.fillStyle=muted;
+  ctx.font='12px -apple-system, sans-serif';
+
+  const ticks=4;
+  for(let i=0;i<=ticks;i++){
+    const val=min+(max-min)*(i/ticks);
+    const y=padT+h-((val-min)/(max-min))*h;
+    ctx.beginPath();
+    ctx.moveTo(padL,y);
+    ctx.lineTo(padL+w,y);
+    ctx.stroke();
+    ctx.fillText(val.toFixed(1),6,y+4);
+  }
+
+  // axes
+  ctx.strokeStyle=accent;
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(padL,padT);
+  ctx.lineTo(padL,padT+h);
+  ctx.lineTo(padL+w,padT+h);
+  ctx.stroke();
+
+  // line
+  ctx.strokeStyle=accent;
+  ctx.lineWidth=4;
+  ctx.beginPath();
+  data.forEach((d,i)=>{
+    const x=padL+i*(w/(data.length-1));
+    const y=padT+h-((Number(d.weight)-min)/(max-min))*h;
+    i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+  });
+  ctx.stroke();
+
+  // points
+  data.forEach((d,i)=>{
+    const x=padL+i*(w/(data.length-1));
+    const y=padT+h-((Number(d.weight)-min)/(max-min))*h;
+    ctx.fillStyle=accent;
+    ctx.beginPath();
+    ctx.arc(x,y,4,0,Math.PI*2);
+    ctx.fill();
+  });
+
+  // x labels first and last dates
+  ctx.fillStyle=muted;
+  ctx.font='11px -apple-system, sans-serif';
+  const first=data[0].date.slice(5);
+  const last=data[data.length-1].date.slice(5);
+  ctx.fillText(first,padL,padT+h+24);
+  ctx.textAlign='right';
+  ctx.fillText(last,padL+w,padT+h+24);
+  ctx.textAlign='left';
+
+  // axis titles
+  ctx.fillStyle=text;
+  ctx.font='12px -apple-system, sans-serif';
+  ctx.fillText('kg',padL,12);
+}
+function historyView(){ const dates=[...new Set([...db.exerciseLogs.map(x=>x.date),...db.cardioLogs.map(x=>x.date),...db.weights.map(x=>x.date)])].sort().reverse().slice(0,30); screen.innerHTML=card('History', `<div class="list">${dates.map(d=>`<div class="list-item"><div><b>${d}</b><p class="small">Weight: ${last(db.weights,x=>x.date===d)?.weight||'—'} kg · Exercises: ${db.exerciseLogs.filter(x=>x.date===d).length} · Cardio: ${db.cardioLogs.filter(x=>x.date===d).length}</p></div><button class="btn" onclick="showDay('${d}')">View</button></div>`).join('')||'<p>No data yet.</p>'}</div>`); }
+window.showDay=function(d){ const ex=db.exerciseLogs.filter(x=>x.date===d); const ca=db.cardioLogs.filter(x=>x.date===d); screen.innerHTML=card(d, `<h3>Exercises</h3><div class="list">${ex.map(x=>`<div class="list-item"><span>${x.exercise}</span><b>${x.working} ${x.unit}</b></div>`).join('')||'<p class="small">None</p>'}</div><h3>Cardio</h3><div class="list">${ca.map(x=>`<div class="list-item"><span>${x.type}</span><b>${x.durationMin} min</b></div>`).join('')||'<p class="small">None</p>'}</div>`); };
+function exportView(){ screen.innerHTML=card('Export & Data', `<p class="small">JSON is best for AI analysis. CSV is best for spreadsheets.</p><button class="btn primary" onclick="downloadJSON()">Export JSON</button><button class="btn primary" onclick="downloadCSV()">Export CSV</button><label>Import backup JSON</label><input type="file" id="importFile" accept="application/json"><button class="btn" onclick="importJSON()">Import Data</button><hr><button class="btn danger" onclick="clearData()">Clear All Data</button>`); }
+function download(name,text,type){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; a.click(); }
+window.downloadJSON=()=>download(`training-data-${todayISO()}.json`,JSON.stringify(db,null,2),'application/json');
+window.downloadCSV=()=>{ const rows=[['type','date','day','routine','exercise','unit','warmup','working','restSec','intensity','weight','durationMin','incline','speed','effort','sleep','energy','soreness','notes']]; db.exerciseLogs.forEach(x=>rows.push(['exercise',x.date,x.day,x.routineTitle,x.exercise,x.unit,x.warmup,x.working,x.restSec,x.intensity,'','','','','','','','',x.notes])); db.weights.forEach(x=>rows.push(['weight',x.date,'','','','','','','','',x.weight,'','','','','','','',''])); db.cardioLogs.forEach(x=>rows.push(['cardio',x.date,'','',x.type,'','','','','','',x.durationMin,x.incline,x.speed,x.effort,'','','',x.notes])); db.recovery.forEach(x=>rows.push(['recovery',x.date,'','','','','','','','','','','','','',x.sleep,x.energy,x.soreness,''])); download(`training-data-${todayISO()}.csv`, rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n'), 'text/csv'); };
+window.importJSON=()=>{ const f=$('#importFile').files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{db=JSON.parse(r.result); save(); todayView(); setActive('today');}; r.readAsText(f); };
+window.clearData=()=>{ if(confirm('Delete all tracker data?')){db=structuredClone(defaults); save(); todayView();}};
+function settingsView(){ screen.innerHTML=card('Settings', `<button class="btn primary" onclick="setTheme('light')">Light Mode</button><button class="btn primary" onclick="setTheme('dark')">Dark Mode</button><p class="small">To install on iPhone: open in Safari, tap Share, then Add to Home Screen.</p><p class="small">Data is stored locally on this phone/browser. Use JSON export as backup.</p>`); }
+function setActive(v){ document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v)); }
+document.querySelectorAll('.nav-btn').forEach(b=>b.onclick=()=>{ setActive(b.dataset.view); ({today:todayView,progress:progressView,history:historyView,export:exportView,settings:settingsView})[b.dataset.view](); });
+todayView();
+
+
+// Phase 15 rest timer
+let restInterval = null;
+let restRepeats = 0;
+let restSoundTimer = null;
+
+function fmtRest(sec){
+  sec = Math.max(0, Number(sec)||0);
+  const m = Math.floor(sec/60);
+  const s = sec % 60;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function playFinishSound(){
+  const audio = document.getElementById('timerSound');
+  if(audio){
+    try{
+      audio.currentTime = 0;
+      audio.play().catch(()=>{});
+    }catch(e){}
+  }
+  if(navigator.vibrate) navigator.vibrate([220,90,220]);
+}
+function finishRestTimer(){
+  clearInterval(restInterval);
+  restInterval = null;
+  document.getElementById('restTimerTime').textContent = '00:00';
+  document.getElementById('restTimerMsg').textContent = '⚡ Next Set';
+  document.getElementById('restTimerDone').hidden = false;
+  restRepeats = 0;
+  const repeat = () => {
+    if(restRepeats >= 3) return;
+    playFinishSound();
+    restRepeats++;
+    if(restRepeats < 3) restSoundTimer = setTimeout(repeat, 3000);
+  };
+  repeat();
+}
+function startRestTimer(seconds){
+  seconds = Math.max(1, Number(seconds)||0);
+  const overlay = document.getElementById('restTimerOverlay');
+  const timeEl = document.getElementById('restTimerTime');
+  const msgEl = document.getElementById('restTimerMsg');
+  const doneBtn = document.getElementById('restTimerDone');
+  clearInterval(restInterval);
+  clearTimeout(restSoundTimer);
+  restRepeats = 0;
+  doneBtn.hidden = true;
+  overlay.hidden = false;
+  msgEl.textContent = 'Recover. Next set soon.';
+  timeEl.textContent = fmtRest(seconds);
+  let remaining = seconds;
+  restInterval = setInterval(()=>{
+    remaining--;
+    timeEl.textContent = fmtRest(remaining);
+    if(remaining <= 0) finishRestTimer();
+  },1000);
+}
+function closeRestTimer(){
+  clearInterval(restInterval);
+  clearTimeout(restSoundTimer);
+  restInterval = null;
+  document.getElementById('restTimerOverlay').hidden = true;
+}
+document.addEventListener('click', e => {
+  if(e.target.classList.contains('rest-start-btn')){
+    const card = e.target.closest('.workout-card');
+    const restInput = card?.querySelector('.rest');
+    startRestTimer(restInput?.value || 60);
+  }
+  if(e.target.id === 'restTimerCancel' || e.target.id === 'restTimerDone'){
+    closeRestTimer();
+  }
+});
+
+function routineCompleted(key){
+  const date=todayISO();
+  if(key==='cardio-forward') return db.cardioLogs.some(x=>x.date===date && x.type!=='Backward treadmill walk');
+  if(key==='cardio-backward') return db.cardioLogs.some(x=>x.date===date && x.type==='Backward treadmill walk');
+  return db.exerciseLogs.some(x=>x.date===date && x.routine===key);
+}
+let stopwatchInterval=null, stopwatchSeconds=0, stopwatchTargetInput=null;
+function unlockTimerAudio(){
+  const audio=document.getElementById('timerSound');
+  if(!audio) return;
+  try{
+    const oldVol=audio.volume; audio.volume=0;
+    const p=audio.play();
+    if(p&&p.then){p.then(()=>{audio.pause();audio.currentTime=0;audio.volume=oldVol||1;}).catch(()=>{audio.volume=oldVol||1;});}
+    else {audio.pause();audio.currentTime=0;audio.volume=oldVol||1;}
+  }catch(e){}
+}
+function startStopwatchFor(input, name){
+  stopwatchTargetInput=input; stopwatchSeconds=0;
+  document.getElementById('stopwatchExercise').textContent=name||'Track your hold.';
+  document.getElementById('stopwatchTime').textContent='00:00';
+  document.getElementById('stopwatchOverlay').hidden=false;
+  clearInterval(stopwatchInterval);
+  stopwatchInterval=setInterval(()=>{stopwatchSeconds++;document.getElementById('stopwatchTime').textContent=fmtRest(stopwatchSeconds);},1000);
+}
+function closeStopwatch(saveVal){
+  clearInterval(stopwatchInterval);
+  if(saveVal && stopwatchTargetInput) stopwatchTargetInput.value=stopwatchSeconds;
+  document.getElementById('stopwatchOverlay').hidden=true;
+}
+document.addEventListener('click',e=>{
+  if(e.target.classList.contains('plus') || e.target.classList.contains('minus')){
+    e.preventDefault();
+    const input=e.target.parentElement.querySelector('input'); if(!input) return;
+    const current=Number(input.value||0); const step = input.classList.contains('rest') ? 15 : 1;
+    input.value=e.target.classList.contains('plus')?current+step:Math.max(0,current-step);
+  }
+  if(e.target.classList.contains('rest-start-btn')) unlockTimerAudio();
+  if(e.target.classList.contains('stopwatch-btn')){
+    const card=e.target.closest('.workout-card');
+    const input=card.querySelector('.set1,.working,.set-value');
+    startStopwatchFor(input,card.dataset.ex);
+  }
+  if(e.target.id==='stopwatchStop') closeStopwatch(true);
+  if(e.target.id==='stopwatchCancel') closeStopwatch(false);
+});
+
+// Save workout override for 3-set abs/core
+window.saveWorkout=function(key,title){
+  const date=todayISO();
+  document.querySelectorAll('.workout-card').forEach(c=>{
+    const setVals=[...c.querySelectorAll('.set-value')].filter(inp=>!inp.classList.contains('rest')).map(inp=>Number(inp.value||0)).filter(v=>v>0);
+    let working=0,warmup=0;
+    if(setVals.length){ working=Math.max(...setVals); }
+    else { working=Number(c.querySelector('.working')?.value||0); warmup=Number(c.querySelector('.warm')?.value||0); }
+    if(!working) return;
+    db.exerciseLogs.push({date,day:dayName(date),routine:key,routineTitle:title,exercise:c.dataset.ex,unit:c.dataset.unit,warmup,working,sets:setVals,restSec:Number(c.querySelector('.rest')?.value||0),intensity:c.querySelector('.pill.selected')?.textContent||'Hard',notes:c.querySelector('.notes')?.value||'',createdAt:new Date().toISOString()});
+  });
+  save(); homeView(); setActive('home');
+};
+
+// Phase 17 trends
+function exerciseTrendCard(name,label){
+  const logs = db.exerciseLogs
+    .filter(x => String(x.exercise||'').toLowerCase().includes(name.toLowerCase()))
+    .slice(-6);
+  if(!logs.length){
+    return `<div class="trend-card"><h4>${label}</h4><p>No data yet.</p></div>`;
+  }
+  const vals = logs.map(x=>Number(x.working||0));
+  const max = Math.max(...vals,1);
+  const bars = vals.map(v=>`<div class="trend-bar-wrap"><div class="trend-bar" style="height:${Math.max(12,(v/max)*90)}px"></div><span>${v}</span></div>`).join('');
+  const dir = vals.length>1 && vals[vals.length-1] > vals[0] ? '↗' : (vals.length>1 && vals[vals.length-1] < vals[0] ? '↘' : '→');
+  return `<div class="trend-card"><div class="trend-head"><h4>${dir} ${label}</h4></div><div class="trend-bars">${bars}</div></div>`;
+}
+
+function completedForToday(key){
+  const date = todayISO();
+  if(key === 'cardio-forward') return db.cardioLogs.some(x=>x.date===date && x.type !== 'Backward treadmill walk');
+  if(key === 'cardio-backward') return db.cardioLogs.some(x=>x.date===date && x.type === 'Backward treadmill walk');
+  return db.exerciseLogs.some(x=>x.date===date && x.routine===key);
+}
+
+// Phase 19 exact step controls + completed stamp
+document.addEventListener('click', e => {
+  if(e.target.classList.contains('plus') || e.target.classList.contains('minus')){
+    const input = e.target.parentElement?.querySelector('input');
+    if(!input) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const current = Number(input.value || 0);
+    const step = input.classList.contains('rest') ? 15 : 1;
+    input.value = e.target.classList.contains('plus') ? current + step : Math.max(0, current - step);
+  }
+}, true);
+
+function exerciseUnitLabel(name, unit){
+  return timedExercise(name, unit) ? 'seconds' : 'reps';
+}
+function completedStamp(key){
+  return completedForToday(key) ? `<div class="completed-stamp">✓ COMPLETED</div>` : '';
+}
+
+
+
+
+// Phase 22 clean completion + save flow
+let p22EditKey = null;
+
+function p22Today(){ return todayISO(); }
+function p22Norm(s){ return String(s||'').toLowerCase(); }
+function p22HasExercise(names){
+  const date = p22Today();
+  return names.some(n => db.exerciseLogs.some(x => x.date===date && p22Norm(x.exercise).includes(p22Norm(n))));
+}
+function p22Complete(key){
+  const date = p22Today();
+  if(key === 'morningAbs') return p22HasExercise(['Crunches','Stomach vacuum','Hollow hold']);
+  if(key === 'sundayCore') return p22HasExercise(['Crunches','Reverse crunch','Stomach vacuum','Hollow hold','Dead bug','Plank']);
+  if(key === 'cardio-forward') return db.cardioLogs.some(x=>x.date===date && x.type !== 'Backward treadmill walk');
+  if(key === 'cardio-backward') return db.cardioLogs.some(x=>x.date===date && x.type === 'Backward treadmill walk');
+  return db.exerciseLogs.some(x=>x.date===date && x.routine===key);
+}
+function completedForToday(key){ return p22Complete(key); }
+function p22Stamp(key){
+  return p22Complete(key) ? `<div class="completed-stamp">✓ COMPLETED</div>` : '';
+}
+function completedStamp(key){ return p22Stamp(key); }
+
+function p22Remove(key){
+  const date = p22Today();
+  const removeNames = names => {
+    db.exerciseLogs = db.exerciseLogs.filter(x => !(x.date===date && names.some(n=>p22Norm(x.exercise).includes(p22Norm(n)))));
+  };
+  if(key === 'morningAbs') return removeNames(['Crunches','Stomach vacuum','Hollow hold']);
+  if(key === 'sundayCore') return removeNames(['Crunches','Reverse crunch','Stomach vacuum','Hollow hold','Dead bug','Plank']);
+  if(key === 'cardio-forward'){
+    db.cardioLogs = db.cardioLogs.filter(x=>!(x.date===date && x.type !== 'Backward treadmill walk'));
+    return;
+  }
+  if(key === 'cardio-backward'){
+    db.cardioLogs = db.cardioLogs.filter(x=>!(x.date===date && x.type === 'Backward treadmill walk'));
+    return;
+  }
+  db.exerciseLogs = db.exerciseLogs.filter(x=>!(x.date===date && x.routine===key));
+}
+
+function p22Summary(key){
+  const date = p22Today();
+  let logs = [];
+  if(key === 'morningAbs') logs = db.exerciseLogs.filter(x=>x.date===date && ['Crunches','Stomach vacuum','Hollow hold'].some(n=>p22Norm(x.exercise).includes(p22Norm(n))));
+  else if(key === 'sundayCore') logs = db.exerciseLogs.filter(x=>x.date===date && ['Crunches','Reverse crunch','Stomach vacuum','Hollow hold','Dead bug','Plank'].some(n=>p22Norm(x.exercise).includes(p22Norm(n))));
+  else if(key === 'cardio-forward') logs = db.cardioLogs.filter(x=>x.date===date && x.type !== 'Backward treadmill walk');
+  else if(key === 'cardio-backward') logs = db.cardioLogs.filter(x=>x.date===date && x.type === 'Backward treadmill walk');
+  else logs = db.exerciseLogs.filter(x=>x.date===date && x.routine===key);
+
+  if(!logs.length) return 'Completed today.';
+  return logs.map(x => x.exercise ? `${x.exercise}: ${x.working} ${x.unit}` : `${x.type}: ${x.duration} min`).join('<br>');
+}
+
+function p22RouteForKey(key){
+  const d = new Date(todayISO()).getDay();
+  if(key === 'morningAbs') return () => workoutView('morningAbs','Morning Abs');
+  if(key === 'sundayCore') return () => workoutView('sundayCore','Sunday Core');
+  if(key === 'pullup') return () => workoutView('pullup','Pull-up Day');
+  if(key === 'chinup') return () => workoutView('chinup','Chin-up Day');
+  if(key === 'hang') return () => workoutView('hang','Hang + Row Day');
+  if(key === 'cardio-forward') return () => cardioView(false);
+  if(key === 'cardio-backward') return () => cardioView(true);
+  return () => homeView();
+}
+
+function p22CompletedScreen(key,title){
+  screen.innerHTML = card('✓ Completed Today', `
+    <p class="small">${title}</p>
+    <div class="completed-summary">${p22Summary(key)}</div>
+    <button class="btn primary" id="p22Edit">Edit today</button>
+    <button class="btn" id="p22Home">Back home</button>
+  `);
+  document.getElementById('p22Edit').onclick = () => { p22EditKey = key; p22RouteForKey(key)(); };
+  document.getElementById('p22Home').onclick = () => { homeView(); setActive('home'); };
+}
+
+document.addEventListener('click', e => {
+  const cardEl = e.target.closest('.home-training-card');
+  if(!cardEl) return;
+  const key = cardEl.dataset.key;
+  if(!key || p22EditKey === key || !p22Complete(key)) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  p22CompletedScreen(key, cardEl.dataset.title || 'Workout');
+}, true);
+
+window.saveWorkout = function(key,title){
+  const date = p22Today();
+  p22Remove(key);
+
+  document.querySelectorAll('.workout-card').forEach(c=>{
+    const setVals = [...c.querySelectorAll('.set-value')]
+      .filter(inp => !inp.classList.contains('rest'))
+      .map(inp => Number(inp.value || 0))
+      .filter(v => v > 0);
+
+    let working = 0;
+    let warmup = 0;
+    if(setVals.length) working = Math.max(...setVals);
+    else{
+      warmup = Number(c.querySelector('.warm')?.value || 0);
+      working = Number(c.querySelector('.working')?.value || 0);
+    }
+    if(!working) return;
+
+    db.exerciseLogs.push({
+      date, day:dayName(date), routine:key, routineTitle:title,
+      exercise:c.dataset.ex, unit:c.dataset.unit, warmup, working, sets:setVals,
+      restSec:Number(c.querySelector('.rest')?.value || 0),
+      intensity:c.querySelector('.pill.selected')?.textContent || 'Hard',
+      notes:c.querySelector('.notes')?.value || '',
+      createdAt:new Date().toISOString()
+    });
+  });
+
+  p22EditKey = null;
+  save();
+  homeView();
+  setActive('home');
+};
+
+
+
+// Phase 23 direct final override
+window.homeView = function(){ todayView(); };
+
+window.saveWorkout = function(key,title){
+  const date = todayISO();
+
+  // Replace today's routine log instead of duplicating
+  if(typeof p22Remove === 'function') p22Remove(key);
+  else db.exerciseLogs = db.exerciseLogs.filter(x => !(x.date===date && x.routine===key));
+
+  document.querySelectorAll('.workout-card').forEach(c=>{
+    const setVals = [...c.querySelectorAll('.set-value')]
+      .filter(inp => !inp.classList.contains('rest'))
+      .map(inp => Number(inp.value || 0))
+      .filter(v => v > 0);
+
+    let working = 0;
+    let warmup = 0;
+
+    if(setVals.length){
+      working = Math.max(...setVals);
+    } else {
+      warmup = Number(c.querySelector('.warm')?.value || 0);
+      working = Number(c.querySelector('.working')?.value || 0);
+    }
+
+    if(!working) return;
+
+    db.exerciseLogs.push({
+      date,
+      day: dayName(date),
+      routine: key,
+      routineTitle: title,
+      exercise: c.dataset.ex,
+      unit: c.dataset.unit,
+      warmup,
+      working,
+      sets: setVals,
+      restSec: Number(c.querySelector('.rest')?.value || 0),
+      intensity: c.querySelector('.pill.selected')?.textContent || 'Hard',
+      notes: c.querySelector('.notes')?.value || '',
+      createdAt: new Date().toISOString()
+    });
+  });
+
+  save();
+  todayView();
+  setActive('today');
+  window.scrollTo({top:0,behavior:'smooth'});
+};
+
+// Phase 24 exact exercise trend matching
+function exerciseTrendMatch(logExercise, name){
+  const ex = String(logExercise || '').toLowerCase().trim();
+  const target = String(name || '').toLowerCase().trim();
+  if(target === 'crunch') return ex === 'crunches';
+  if(target === 'pull') return ex === 'pull-ups';
+  if(target === 'push') return ex === 'push-ups';
+  return ex.includes(target);
+}
+function exerciseTrendCard(name,label){
+  const logs = db.exerciseLogs
+    .filter(x => exerciseTrendMatch(x.exercise, name))
+    .slice(-6);
+  if(!logs.length){
+    return `<div class="trend-card"><h4>${label}</h4><p class="small">No data yet.</p></div>`;
+  }
+  const vals = logs.map(x=>Number(x.working||0));
+  const max = Math.max(...vals,1);
+  const bars = vals.map(v=>`<div class="trend-bar-wrap"><div class="trend-bar" style="height:${Math.max(12,(v/max)*90)}px"></div><span>${v}</span></div>`).join('');
+  const dir = vals.length>1 && vals[vals.length-1] > vals[0] ? '↗' : (vals.length>1 && vals[vals.length-1] < vals[0] ? '↘' : '→');
+  return `<div class="trend-card"><div class="trend-head"><h4>${dir} ${label}</h4></div><div class="trend-bars">${bars}</div></div>`;
+}
+
+// Phase 24 real-clock rest timer + next-empty-set stopwatch
+let p24WakeLock = null;
+let p24RestEndAt = null;
+let p24RestTicker = null;
+let p24StopwatchStartAt = null;
+let p24StopwatchCard = null;
+let p24StopwatchTicker = null;
+
+async function p24RequestWakeLock(){
+  try{
+    if('wakeLock' in navigator){
+      p24WakeLock = await navigator.wakeLock.request('screen');
+    }
+  }catch(e){
+    console.log('Wake lock unavailable', e);
+  }
+}
+function p24ReleaseWakeLock(){
+  try{
+    if(p24WakeLock){
+      p24WakeLock.release();
+      p24WakeLock = null;
+    }
+  }catch(e){}
+}
+document.addEventListener('visibilitychange', async ()=>{
+  if(document.visibilityState === 'visible'){
+    if(p24RestEndAt || p24StopwatchStartAt) p24RequestWakeLock();
+    if(p24RestEndAt && Date.now() >= p24RestEndAt){
+      finishRestTimer();
+      const msg = document.getElementById('restTimerMsg');
+      if(msg) msg.textContent = '⚡ Timer finished while screen was off';
+    }
+  }
+});
+window.startRestTimer = function(seconds){
+  seconds = Math.max(1, Number(seconds)||0);
+  const overlay = document.getElementById('restTimerOverlay');
+  const timeEl = document.getElementById('restTimerTime');
+  const msgEl = document.getElementById('restTimerMsg');
+  const doneBtn = document.getElementById('restTimerDone');
+  clearInterval(p24RestTicker);
+  clearTimeout(restSoundTimer);
+  restRepeats = 0;
+  if(doneBtn) doneBtn.hidden = true;
+  if(overlay) overlay.hidden = false;
+  if(msgEl) msgEl.textContent = 'Keep this screen open for sound.';
+  p24RestEndAt = Date.now() + seconds * 1000;
+  p24RequestWakeLock();
+  const tick = () => {
+    const remaining = Math.max(0, Math.ceil((p24RestEndAt - Date.now()) / 1000));
+    if(timeEl) timeEl.textContent = fmtRest(remaining);
+    if(remaining <= 0){
+      clearInterval(p24RestTicker);
+      p24RestTicker = null;
+      finishRestTimer();
+    }
+  };
+  tick();
+  p24RestTicker = setInterval(tick, 250);
+};
+window.closeRestTimer = function(){
+  clearInterval(p24RestTicker);
+  clearTimeout(restSoundTimer);
+  p24RestTicker = null;
+  p24RestEndAt = null;
+  p24ReleaseWakeLock();
+  const overlay = document.getElementById('restTimerOverlay');
+  if(overlay) overlay.hidden = true;
+};
+function p24NextEmptySetInput(card){
+  const inputs = [...card.querySelectorAll('.set-value')]
+    .filter(inp => !inp.classList.contains('rest'));
+  if(!inputs.length) return card.querySelector('.working');
+  return inputs.find(inp => !Number(inp.value || 0)) || inputs[inputs.length - 1];
+}
+window.startStopwatchFor = function(inputOrCard, name){
+  const card = inputOrCard?.classList?.contains('workout-card')
+    ? inputOrCard
+    : (inputOrCard?.closest?.('.workout-card') || document.querySelector('.workout-card'));
+  p24StopwatchCard = card;
+  p24StopwatchStartAt = Date.now();
+  const overlay = document.getElementById('stopwatchOverlay');
+  const label = document.getElementById('stopwatchExercise');
+  const time = document.getElementById('stopwatchTime');
+  if(label) label.textContent = name || card?.dataset?.ex || 'Track your hold.';
+  if(time) time.textContent = '00:00';
+  if(overlay) overlay.hidden = false;
+  p24RequestWakeLock();
+  clearInterval(p24StopwatchTicker);
+  p24StopwatchTicker = setInterval(()=>{
+    const elapsed = Math.floor((Date.now() - p24StopwatchStartAt)/1000);
+    const time = document.getElementById('stopwatchTime');
+    if(time) time.textContent = fmtRest(elapsed);
+  },250);
+};
+window.closeStopwatch = function(saveValue){
+  clearInterval(p24StopwatchTicker);
+  p24StopwatchTicker = null;
+  const elapsed = p24StopwatchStartAt ? Math.max(0, Math.floor((Date.now() - p24StopwatchStartAt)/1000)) : 0;
+  if(saveValue && p24StopwatchCard){
+    const target = p24NextEmptySetInput(p24StopwatchCard);
+    if(target) target.value = elapsed;
+  }
+  p24StopwatchStartAt = null;
+  p24StopwatchCard = null;
+  p24ReleaseWakeLock();
+  const overlay = document.getElementById('stopwatchOverlay');
+  if(overlay) overlay.hidden = true;
+};
+document.addEventListener('click', e=>{
+  if(e.target.classList.contains('stopwatch-btn')){
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const card = e.target.closest('.workout-card');
+    startStopwatchFor(card, card?.dataset?.ex || 'Exercise');
+  }
+}, true);
+document.addEventListener('click', e => {
+  if(e.target.classList.contains('plus') || e.target.classList.contains('minus')){
+    const input = e.target.parentElement?.querySelector('input');
+    if(!input) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const current = Number(input.value || 0);
+    const step = input.classList.contains('rest') ? 15 : 1;
+    input.value = e.target.classList.contains('plus') ? current + step : Math.max(0, current - step);
+  }
+}, true);
+try{
+  startRestTimer = window.startRestTimer;
+  closeRestTimer = window.closeRestTimer;
+  startStopwatchFor = window.startStopwatchFor;
+  closeStopwatch = window.closeStopwatch;
+}catch(e){}
+
+// Phase 26 progress snapshot
+function loadHtml2Canvas(cb){
+  if(window.html2canvas){ cb(); return; }
+  const s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+  s.onload=cb;
+  document.head.appendChild(s);
+}
+
+function shareProgressSnapshot(){
+  loadHtml2Canvas(async ()=>{
+    const cards=[...document.querySelectorAll('.card')].filter(c=>{
+      const h=c.querySelector('h2,h3');
+      const t=h?.textContent||'';
+      return t.includes('Weight Trend') || t.includes('Exercise Trends') || t.includes('Best Sets');
+    });
+    if(!cards.length) return;
+
+    const wrapper=document.createElement('div');
+    wrapper.className='snapshot-wrapper';
+    wrapper.style.position='fixed';
+    wrapper.style.left='-9999px';
+    wrapper.style.top='0';
+    wrapper.style.width='420px';
+    wrapper.style.padding='18px';
+    wrapper.style.background='linear-gradient(180deg,#031426,#08223b)';
+    cards.forEach(c=>wrapper.appendChild(c.cloneNode(true)));
+    document.body.appendChild(wrapper);
+
+    const canvas=await html2canvas(wrapper,{
+      backgroundColor:'#031426',
+      scale:2
+    });
+
+    document.body.removeChild(wrapper);
+
+    canvas.toBlob(async blob=>{
+      const file=new File([blob],'hokusai-progress.png',{type:'image/png'});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        try{
+          await navigator.share({
+            files:[file],
+            title:'Progress Snapshot'
+          });
+          return;
+        }catch(e){}
+      }
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download='hokusai-progress.png';
+      a.click();
+    });
+  });
+}
+
+// Phase 27 guaranteed progress snapshot
+function loadHtml2Canvas(cb){
+  if(window.html2canvas){ cb(); return; }
+  const s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+  s.onload=cb;
+  document.head.appendChild(s);
+}
+function shareProgressSnapshot(){
+  loadHtml2Canvas(async ()=>{
+    const section = document.getElementById('progressSnapshotArea');
+    if(!section) return alert('Open Progress first.');
+    const canvas = await html2canvas(section,{backgroundColor:'#031426',scale:2});
+    canvas.toBlob(async blob=>{
+      const file = new File([blob],'hokusai-progress.png',{type:'image/png'});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        try{ await navigator.share({files:[file],title:'Progress Snapshot'}); return; }catch(e){}
+      }
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download='hokusai-progress.png';
+      a.click();
+    });
+  });
+}
+
+
+// Phase 29 V1 stabilisation guard
+// Purpose: preserve V1 behaviour while giving future phases safer helpers.
+const HOKUSAI_V1 = {
+  version: '1.0-phase29',
+  timedExercises: ['stomach vacuum','hollow hold','dead / active hang','plank'],
+  trendExact: {
+    crunch: 'crunches',
+    pull: 'pull-ups',
+    push: 'push-ups'
+  }
+};
+
+function hksNorm(v){
+  return String(v || '').toLowerCase().trim();
+}
+
+function hksIsTimedExercise(name){
+  const n = hksNorm(name);
+  return HOKUSAI_V1.timedExercises.includes(n) || n.includes('hang') || n.includes('vacuum') || n.includes('hollow') || n.includes('plank');
+}
+
+function hksSafeArray(v){
+  return Array.isArray(v) ? v : [];
+}
+
+function hksEnsureDbShape(){
+  if(typeof db !== 'object' || !db) return;
+  db.weights = hksSafeArray(db.weights);
+  db.exerciseLogs = hksSafeArray(db.exerciseLogs);
+  db.cardioLogs = hksSafeArray(db.cardioLogs);
+  db.wellness = hksSafeArray(db.wellness);
+}
+
+// Run once after app load to protect old/local data shape.
+try{ hksEnsureDbShape(); save(); }catch(e){ console.log('Phase29 db shape guard skipped', e); }
+
+// Compatibility: make homeView always point to the real home/today screen.
+try{
+  window.homeView = function(){ todayView(); };
+  if(typeof homeView === 'undefined') var homeView = window.homeView;
+}catch(e){}
+
+// Compatibility: exact trend matching preserved.
+window.exerciseTrendMatch = function(logExercise, name){
+  const ex = hksNorm(logExercise);
+  const target = hksNorm(name);
+  if(target === 'crunch') return ex === 'crunches';
+  if(target === 'pull') return ex === 'pull-ups';
+  if(target === 'push') return ex === 'push-ups';
+  return ex.includes(target);
+};
+
+// Compatibility: completed checks preserved and defensive.
+window.hksHasExerciseToday = function(names){
+  const date = todayISO();
+  return hksSafeArray(names).some(n => db.exerciseLogs.some(x => x.date === date && hksNorm(x.exercise).includes(hksNorm(n))));
+};
+
+window.completedForToday = function(key){
+  const date = todayISO();
+  if(key === 'morningAbs') return hksHasExerciseToday(['Crunches','Stomach vacuum','Hollow hold']);
+  if(key === 'sundayCore') return hksHasExerciseToday(['Crunches','Reverse crunch','Stomach vacuum','Hollow hold','Dead bug','Plank']);
+  if(key === 'cardio-forward') return db.cardioLogs.some(x => x.date === date && x.type !== 'Backward treadmill walk');
+  if(key === 'cardio-backward') return db.cardioLogs.some(x => x.date === date && x.type === 'Backward treadmill walk');
+  return db.exerciseLogs.some(x => x.date === date && x.routine === key);
+};
+
+window.completedStamp = function(key){
+  return completedForToday(key) ? `<div class="completed-stamp">✓ COMPLETED</div>` : '';
+};
+
+// Compatibility: exact plus/minus increments preserved.
+document.addEventListener('click', e => {
+  if(e.target.classList.contains('plus') || e.target.classList.contains('minus')){
+    const input = e.target.parentElement?.querySelector('input');
+    if(!input) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const current = Number(input.value || 0);
+    const step = input.classList.contains('rest') ? 15 : 1;
+    input.value = e.target.classList.contains('plus') ? current + step : Math.max(0, current - step);
+  }
+}, true);
+
+// Compatibility: save should always return to Home and never duplicate today's routine.
+window.hksRemoveTodayRoutine = function(key){
+  const date = todayISO();
+  const removeNames = names => {
+    db.exerciseLogs = db.exerciseLogs.filter(x => !(x.date === date && names.some(n => hksNorm(x.exercise).includes(hksNorm(n)))));
+  };
+  if(key === 'morningAbs') return removeNames(['Crunches','Stomach vacuum','Hollow hold']);
+  if(key === 'sundayCore') return removeNames(['Crunches','Reverse crunch','Stomach vacuum','Hollow hold','Dead bug','Plank']);
+  if(key === 'cardio-forward'){
+    db.cardioLogs = db.cardioLogs.filter(x => !(x.date === date && x.type !== 'Backward treadmill walk'));
+    return;
+  }
+  if(key === 'cardio-backward'){
+    db.cardioLogs = db.cardioLogs.filter(x => !(x.date === date && x.type === 'Backward treadmill walk'));
+    return;
+  }
+  db.exerciseLogs = db.exerciseLogs.filter(x => !(x.date === date && x.routine === key));
+};
+
+window.saveWorkout = function(key,title){
+  hksEnsureDbShape();
+  const date = todayISO();
+  hksRemoveTodayRoutine(key);
+
+  document.querySelectorAll('.workout-card').forEach(c => {
+    const setVals = [...c.querySelectorAll('.set-value')]
+      .filter(inp => !inp.classList.contains('rest'))
+      .map(inp => Number(inp.value || 0))
+      .filter(v => v > 0);
+
+    let working = 0;
+    let warmup = 0;
+
+    if(setVals.length){
+      working = Math.max(...setVals);
+    }else{
+      warmup = Number(c.querySelector('.warm')?.value || 0);
+      working = Number(c.querySelector('.working')?.value || 0);
+    }
+
+    if(!working) return;
+
+    db.exerciseLogs.push({
+      date,
+      day: dayName(date),
+      routine: key,
+      routineTitle: title,
+      exercise: c.dataset.ex,
+      unit: c.dataset.unit,
+      warmup,
+      working,
+      sets: setVals,
+      restSec: Number(c.querySelector('.rest')?.value || 0),
+      intensity: c.querySelector('.pill.selected')?.textContent || 'Hard',
+      notes: c.querySelector('.notes')?.value || '',
+      createdAt: new Date().toISOString()
+    });
+  });
+
+  save();
+  todayView();
+  setActive('today');
+  window.scrollTo({top:0, behavior:'smooth'});
+};
+
+// Compatibility: progress snapshot function must exist even if CDN fails to load at first tap.
+if(typeof loadHtml2Canvas !== 'function'){
+  window.loadHtml2Canvas = function(cb){
+    if(window.html2canvas){ cb(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+    s.onload = cb;
+    s.onerror = () => alert('Snapshot tool could not load. Check internet connection.');
+    document.head.appendChild(s);
+  };
+}
+
+
+// Phase 30 regression lock — final authoritative V1 behaviours
+(function(){
+  const V1_TIMED = ['stomach vacuum','hollow hold','dead / active hang','plank'];
+  const norm = v => String(v || '').toLowerCase().trim();
+  const today = () => todayISO();
+
+  window.hksV1 = window.hksV1 || {};
+  window.hksV1.version = 'phase30-regression';
+
+  window.hksV1.isTimed = function(name){
+    const n = norm(name);
+    return V1_TIMED.includes(n) || n.includes('hang') || n.includes('vacuum') || n.includes('hollow') || n.includes('plank');
+  };
+
+  window.hksV1.ensureDb = function(){
+    if(!window.db) return;
+    db.weights = Array.isArray(db.weights) ? db.weights : [];
+    db.exerciseLogs = Array.isArray(db.exerciseLogs) ? db.exerciseLogs : [];
+    db.cardioLogs = Array.isArray(db.cardioLogs) ? db.cardioLogs : [];
+    db.wellness = Array.isArray(db.wellness) ? db.wellness : [];
+  };
+
+  window.hksV1.hasExerciseToday = function(names){
+    const date = today();
+    return names.some(n => db.exerciseLogs.some(x => x.date === date && norm(x.exercise).includes(norm(n))));
+  };
+
+  window.completedForToday = function(key){
+    window.hksV1.ensureDb();
+    const date = today();
+
+    if(key === 'morningAbs') return window.hksV1.hasExerciseToday(['Crunches','Stomach vacuum','Hollow hold']);
+    if(key === 'sundayCore') return window.hksV1.hasExerciseToday(['Crunches','Reverse crunch','Stomach vacuum','Hollow hold','Dead bug','Plank']);
+    if(key === 'cardio-forward') return db.cardioLogs.some(x => x.date === date && x.type !== 'Backward treadmill walk');
+    if(key === 'cardio-backward') return db.cardioLogs.some(x => x.date === date && x.type === 'Backward treadmill walk');
+
+    return db.exerciseLogs.some(x => x.date === date && x.routine === key);
+  };
+
+  window.completedStamp = function(key){
+    return completedForToday(key) ? `<div class="completed-stamp">✓ COMPLETED</div>` : '';
+  };
+
+  window.exerciseTrendMatch = function(logExercise, name){
+    const ex = norm(logExercise);
+    const target = norm(name);
+    if(target === 'crunch') return ex === 'crunches';
+    if(target === 'pull') return ex === 'pull-ups';
+    if(target === 'push') return ex === 'push-ups';
+    return ex.includes(target);
+  };
+
+  window.hksV1.removeTodayRoutine = function(key){
+    const date = today();
+    const removeNames = names => {
+      db.exerciseLogs = db.exerciseLogs.filter(x => !(x.date === date && names.some(n => norm(x.exercise).includes(norm(n)))));
+    };
+
+    if(key === 'morningAbs') return removeNames(['Crunches','Stomach vacuum','Hollow hold']);
+    if(key === 'sundayCore') return removeNames(['Crunches','Reverse crunch','Stomach vacuum','Hollow hold','Dead bug','Plank']);
+    if(key === 'cardio-forward'){
+      db.cardioLogs = db.cardioLogs.filter(x => !(x.date === date && x.type !== 'Backward treadmill walk'));
+      return;
+    }
+    if(key === 'cardio-backward'){
+      db.cardioLogs = db.cardioLogs.filter(x => !(x.date === date && x.type === 'Backward treadmill walk'));
+      return;
+    }
+
+    db.exerciseLogs = db.exerciseLogs.filter(x => !(x.date === date && x.routine === key));
+  };
+
+  window.homeView = function(){ todayView(); };
+
+  window.saveWorkout = function(key,title){
+    window.hksV1.ensureDb();
+    const date = today();
+    window.hksV1.removeTodayRoutine(key);
+
+    document.querySelectorAll('.workout-card').forEach(c => {
+      const setVals = [...c.querySelectorAll('.set-value')]
+        .filter(inp => !inp.classList.contains('rest'))
+        .map(inp => Number(inp.value || 0))
+        .filter(v => v > 0);
+
+      let warmup = 0;
+      let working = 0;
+
+      if(setVals.length){
+        working = Math.max(...setVals);
+      } else {
+        warmup = Number(c.querySelector('.warm')?.value || 0);
+        working = Number(c.querySelector('.working')?.value || 0);
+      }
+
+      if(!working) return;
+
+      db.exerciseLogs.push({
+        date,
+        day: dayName(date),
+        routine: key,
+        routineTitle: title,
+        exercise: c.dataset.ex,
+        unit: c.dataset.unit,
+        warmup,
+        working,
+        sets: setVals,
+        restSec: Number(c.querySelector('.rest')?.value || 0),
+        intensity: c.querySelector('.pill.selected')?.textContent || 'Hard',
+        notes: c.querySelector('.notes')?.value || '',
+        createdAt: new Date().toISOString()
+      });
+    });
+
+    save();
+    todayView();
+    setActive('today');
+    window.scrollTo({top:0, behavior:'smooth'});
+  };
+
+  // Capture controls last: rest changes 15 seconds, all sets/reps/seconds change by 1.
+  document.addEventListener('click', function(e){
+    if(e.target.classList.contains('plus') || e.target.classList.contains('minus')){
+      const input = e.target.parentElement?.querySelector('input');
+      if(!input) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const current = Number(input.value || 0);
+      const step = input.classList.contains('rest') ? 15 : 1;
+      input.value = e.target.classList.contains('plus') ? current + step : Math.max(0, current - step);
+    }
+  }, true);
+
+  try{ window.hksV1.ensureDb(); }catch(e){}
+})();
+
+
+// Phase 30.1 local date fix
+// Fix: ensure ALL completion/history logic uses local iPhone date, not UTC.
+window.hksLocalISODate = function(){
+  const now = new Date();
+  const local = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
+  return local.toISOString().split('T')[0];
+};
+
+// Final authoritative override
+window.todayISO = function(){
+  return window.hksLocalISODate();
+};
+
+// Day label safety
+window.dayName = function(iso){
+  const [y,m,d] = iso.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dt.getDay()];
+};
+
+console.log('Phase30.1 local date active', todayISO());
+
+
+// Phase 30.2 Today Training date source fix
+// Force the Today Training section to use the same local date source as the hero.
+window.hksTodayDate = function(){
+  return todayISO();
+};
+
+window.hksDayNameLocal = function(iso){
+  const [y,m,d] = String(iso).split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dt.getDay()];
+};
+
+// If the app stores a selected date, force it to current local day on Home render.
+try{
+  if(typeof db === 'object' && db){
+    todayISO() = todayISO();
+    todayISO() = todayISO();
+  }
+}catch(e){}
+
+// Wrap todayView to refresh any cached date every render.
+try{
+  if(typeof todayView === 'function' && !window.__hksTodayViewWrapped){
+    const originalTodayView = todayView;
+    window.__hksTodayViewWrapped = true;
+    todayView = function(){
+      try{
+        if(typeof db === 'object' && db){
+          todayISO() = todayISO();
+          todayISO() = todayISO();
+        }
+      }catch(e){}
+      originalTodayView();
+      // Last-resort DOM correction: fix any stale date chip/section label after render.
+      try{
+        const iso = todayISO();
+        const day = dayName(iso).toUpperCase();
+        document.querySelectorAll('.date-chip,.today-date,.pill-date').forEach(el=>{
+          if(/\d{4}-\d{2}-\d{2}/.test(el.textContent)) el.textContent = iso;
+        });
+        document.querySelectorAll('section.card, .today-card, .home-section, .card').forEach(el=>{
+          if(el.textContent.includes("Today's Training")){
+            el.innerHTML = el.innerHTML
+              .replace(/SUNDAY|MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY/, day)
+              .replace(/\d{4}-\d{2}-\d{2}/, iso);
+          }
+        });
+      }catch(e){}
+    };
+  }
+}catch(e){}
